@@ -28,6 +28,11 @@ contract PancakeStrategy is Ownable, ReentrancyGuard, Pausable {
 
   bool public enableAutoHarvest;
 
+  address[] public earnedToToken0Path;
+  address[] public earnedToToken1Path;
+  address[] public token0ToEarnedPath;
+  address[] public token1ToEarnedPath;
+
   uint256 public wantLockedTotal = 0;
   uint256 public sharesTotal = 0;
 
@@ -35,14 +40,39 @@ contract PancakeStrategy is Ownable, ReentrancyGuard, Pausable {
   uint256 public constant SLIPPAGE_FACTOR_UL = 995;
   uint256 public constant SLIPPAGE_FACTOR_MAX = 1000;
 
-  address[] public earnedToToken0Path;
-  address[] public earnedToToken1Path;
-  address[] public token0ToEarnedPath;
-  address[] public token1ToEarnedPath;
-
   modifier onlyHelioFarming() {
     require(msg.sender == helioFarming, "!helio Farming");
     _;
+  }
+
+  constructor(
+    uint256 _pid,
+    address _farmContractAddress,
+    address _want,
+    address _cake,
+    address _token0,
+    address _token1,
+    address _router,
+    address _helioFarming,
+    bool _enableAutoHarvest,
+    address[] memory _earnedToToken0Path,
+    address[] memory _earnedToToken1Path,
+    address[] memory _token0ToEarnedPath,
+    address[] memory _token1ToEarnedPath
+  ) {
+    pid = _pid;
+    farmContractAddress = _farmContractAddress;
+    want = _want;
+    cake = _cake;
+    token0 = _token0;
+    token1 = _token1;
+    router = _router;
+    helioFarming = _helioFarming;
+    enableAutoHarvest = _enableAutoHarvest;
+    earnedToToken0Path = _earnedToToken0Path;
+    earnedToToken1Path = _earnedToToken1Path;
+    token0ToEarnedPath = _token0ToEarnedPath;
+    token1ToEarnedPath = _token1ToEarnedPath;
   }
 
   // Receives new deposits from user
