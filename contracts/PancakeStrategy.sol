@@ -47,27 +47,28 @@ contract PancakeStrategy is Ownable, ReentrancyGuard, Pausable {
 
   constructor(
     uint256 _pid,
-    address _farmContractAddress,
-    address _want,
-    address _cake,
-    address _token0,
-    address _token1,
-    address _router,
-    address _helioFarming,
     bool _enableAutoHarvest,
+    address[] memory _addresses,
+    // 0 address _farmContractAddress,
+    // 1 address _want,
+    // 2 address _cake,
+    // 3 address _token0,
+    // 4 address _token1,
+    // 5 address _router,
+    // 6 address _helioFarming,
     address[] memory _earnedToToken0Path,
     address[] memory _earnedToToken1Path,
     address[] memory _token0ToEarnedPath,
     address[] memory _token1ToEarnedPath
   ) {
     pid = _pid;
-    farmContractAddress = _farmContractAddress;
-    want = _want;
-    cake = _cake;
-    token0 = _token0;
-    token1 = _token1;
-    router = _router;
-    helioFarming = _helioFarming;
+    farmContractAddress = _addresses[0];
+    want = _addresses[1];
+    cake = _addresses[2];
+    token0 = _addresses[3];
+    token1 = _addresses[4];
+    router = _addresses[5];
+    helioFarming = _addresses[6];
     enableAutoHarvest = _enableAutoHarvest;
     earnedToToken0Path = _earnedToToken0Path;
     earnedToToken1Path = _earnedToToken1Path;
