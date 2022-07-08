@@ -13,6 +13,8 @@ import { IWBNB } from "./interfaces/IWBNB.sol";
 import { IPancakeswapFarm } from "./interfaces/IPancakeswapFarm.sol";
 import { IPancakeRouter02 } from "./interfaces/IPancakeRouter02.sol";
 
+import "hardhat/console.sol";
+
 // solhint-disable max-states-count
 contract PancakeStrategy is Ownable, ReentrancyGuard, Pausable {
   using SafeERC20 for IERC20;
@@ -36,9 +38,14 @@ contract PancakeStrategy is Ownable, ReentrancyGuard, Pausable {
   uint256 public wantLockedTotal = 0;
   uint256 public sharesTotal = 0;
 
+  uint256 public minEarnAmount;
+  // TODO: change value
+  uint256 public constant MIN_EARN_AMOUNT_LL = 10**5;
+
   uint256 public slippageFactor = 950;
   uint256 public constant SLIPPAGE_FACTOR_UL = 995;
   uint256 public constant SLIPPAGE_FACTOR_MAX = 1000;
+
 
   modifier onlyHelioFarming() {
     require(msg.sender == helioFarming, "!helio Farming");
@@ -47,6 +54,7 @@ contract PancakeStrategy is Ownable, ReentrancyGuard, Pausable {
 
   constructor(
     uint256 _pid,
+    uint256 _minEarnAmount,
     bool _enableAutoHarvest,
     address[] memory _addresses,
     // 0 address _farmContractAddress,
@@ -61,7 +69,9 @@ contract PancakeStrategy is Ownable, ReentrancyGuard, Pausable {
     address[] memory _token0ToEarnedPath,
     address[] memory _token1ToEarnedPath
   ) {
+    require(_minEarnAmount >= MIN_EARN_AMOUNT_LL, "min earn amount is too low");
     pid = _pid;
+    minEarnAmount = _minEarnAmount;
     farmContractAddress = _addresses[0];
     want = _addresses[1];
     cake = _addresses[2];
@@ -81,12 +91,11 @@ contract PancakeStrategy is Ownable, ReentrancyGuard, Pausable {
     public
     virtual
     onlyHelioFarming
-    nonReentrant
     whenNotPaused
     returns (uint256)
   {
     if (enableAutoHarvest) {
-      harvest();
+      _harvest();
     }
     IERC20(want).safeTransferFrom(address(msg.sender), address(this), _wantAmt);
 
@@ -111,7 +120,7 @@ contract PancakeStrategy is Ownable, ReentrancyGuard, Pausable {
     require(_wantAmt > 0, "_wantAmt <= 0");
 
     if (enableAutoHarvest) {
-      harvest();
+      _harvest();
     }
 
     uint256 sharesRemoved = (_wantAmt * sharesTotal) / wantLockedTotal;
@@ -158,6 +167,13 @@ contract PancakeStrategy is Ownable, ReentrancyGuard, Pausable {
   // 2. Converts farm tokens into want tokens
   // 3. Deposits want tokens
   function harvest() public virtual nonReentrant whenNotPaused {
+    _harvest();
+  }
+
+  // 1. Harvest farm tokens
+  // 2. Converts farm tokens into want tokens
+  // 3. Deposits want tokens
+  function _harvest() internal virtual {
     // Harvest farm tokens
     _unfarm(0);
 
@@ -166,6 +182,14 @@ contract PancakeStrategy is Ownable, ReentrancyGuard, Pausable {
 
     IERC20(cake).safeApprove(router, 0);
     IERC20(cake).safeIncreaseAllowance(router, earnedAmt);
+
+    console.log("earned Amt is", earnedAmt);
+    if (earnedAmt < minEarnAmount) {
+      console.log("Not collected");
+      return;
+    }
+
+    console.log("Balance of want before", IERC20(want).balanceOf(address(this)));
 
     if (cake != token0) {
       // Swap half earned to token0
@@ -208,6 +232,8 @@ contract PancakeStrategy is Ownable, ReentrancyGuard, Pausable {
         block.timestamp + 600
       );
     }
+
+    console.log("Balance of want after", IERC20(want).balanceOf(address(this)));
 
     _farm();
   }
@@ -257,5 +283,10 @@ contract PancakeStrategy is Ownable, ReentrancyGuard, Pausable {
   function setSlippageFactor(uint256 _slippageFactor) external onlyOwner {
     require(_slippageFactor <= SLIPPAGE_FACTOR_UL, "slippageFactor too high");
     slippageFactor = _slippageFactor;
+  }
+
+  function setMinEarnAmount(uint256 _minEarnAmount) external onlyOwner {
+    require(_minEarnAmount >= MIN_EARN_AMOUNT_LL, "min earn amount is too low");
+    minEarnAmount = _minEarnAmount;
   }
 }

@@ -6,6 +6,19 @@ export const advanceTime = async (seconds: number) => {
   await network.provider.send("evm_mine");
 };
 
+export const advanceBlock = async (blockCount: number) => {
+  for (let i = 0; i < blockCount; i++) {
+    await network.provider.send("evm_mine");
+  }
+};
+
+export const advanceBlockAndTime = async (blockCount: number, seconds: number) => {
+  const secondPerBlock = Math.floor(seconds / blockCount);
+  for (let i = 0; i < blockCount; i++) {
+    await advanceTime(secondPerBlock);
+  }
+};
+
 export const setTimestamp = async (seconds: number) => {
   await network.provider.send("evm_setNextBlockTimestamp", [seconds]);
   await network.provider.send("evm_mine");
@@ -37,6 +50,8 @@ export const getNextTimestampDivisibleBy = async (num: number): Promise<BigNumbe
 
 export default {
   advanceTime,
+  advanceBlock,
+  advanceBlockAndTime,
   setTimestamp,
   getTimestamp,
   daysToSeconds,

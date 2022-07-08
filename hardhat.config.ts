@@ -35,9 +35,15 @@ if (process.env.PK_2) {
   pks.push(process.env.PK_2);
 }
 
+let forking;
+if (process.env.FORKING_URL) {
+  forking = {
+    url: process.env.FORKING_URL,
+  };
+}
+
 // You need to export an object to set up your config
 // Go to https://hardhat.org/config/ to learn more
-
 const config: HardhatUserConfig = {
   solidity: {
     version: "0.8.15",
@@ -49,6 +55,14 @@ const config: HardhatUserConfig = {
     },
   },
   networks: {
+    hardhat: {
+      forking,
+      accounts: {
+        mnemonic: "test test test test test test test test test test test test",
+        count: 10,
+        accountsBalance: "100000000000000000000000000",
+      },
+    },
     bscTestnet: {
       url: process.env.BSC_TESTNET_URL || "",
       accounts: pks,
