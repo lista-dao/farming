@@ -150,26 +150,6 @@ contract PancakeStrategy is OwnableUpgradeable, ReentrancyGuardUpgradeable, Paus
     IERC20Upgradeable(_token).safeTransfer(_to, _amount);
   }
 
-  function _safeSwap(
-    address _uniRouterAddress,
-    uint256 _amountIn,
-    uint256 _slippageFactor,
-    address[] memory _path,
-    address _to,
-    uint256 _deadline
-  ) internal virtual {
-    uint256[] memory amounts = IPancakeRouter02(_uniRouterAddress).getAmountsOut(_amountIn, _path);
-    uint256 amountOut = amounts[amounts.length - 1];
-
-    IPancakeRouter02(_uniRouterAddress).swapExactTokensForTokensSupportingFeeOnTransferTokens(
-      _amountIn,
-      (amountOut * _slippageFactor) / SLIPPAGE_FACTOR_MAX,
-      _path,
-      _to,
-      _deadline
-    );
-  }
-
   function pause() public onlyOwner {
     _pause();
   }
