@@ -1,6 +1,6 @@
 import chai, { assert, expect } from "chai";
 import chaiAsPromised from "chai-as-promised";
-import { ethers } from "hardhat";
+import { ethers, upgrades } from "hardhat";
 import { BigNumber } from "ethers";
 import { solidity } from "ethereum-waffle";
 
@@ -13,7 +13,14 @@ import {
   setTimestamp,
 } from "../helpers/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { IERC20, IUniswapV2Router02, IWBNB, PancakeStrategy } from "../../typechain-types";
+import {
+  IERC20,
+  IUniswapV2Router02,
+  IWBNB,
+  PancakeStrategy,
+  StrategyMock,
+} from "../../typechain-types";
+import NetworkSnapshotter from "../helpers/NetworkSnapshotter";
 
 const { AddressZero, MaxUint256 } = ethers.constants;
 
@@ -36,9 +43,11 @@ describe("Strategy", () => {
   let wbnb: IWBNB;
   let router: IUniswapV2Router02;
 
+  const networkSnapshotter = new NetworkSnapshotter();
+
   const minEarnAmount = ten.pow(5);
 
-  beforeEach("setup strategy contract", async () => {
+  before("setup strategy contract", async () => {
     [deployer, helioFarming, signer2] = await ethers.getSigners();
     // TODO: should be researched
     const pid = BigNumber.from(3);
@@ -64,20 +73,16 @@ describe("Strategy", () => {
     ];
     const earnedToToken0Path = [cake.address, token0.address];
     const earnedToToken1Path = [cake.address, token1.address];
-    const token0ToEarnedPath = [token0.address, cake.address];
-    const token1ToEarnedPath = [token1.address, cake.address];
 
     const Strategy = await ethers.getContractFactory("PancakeStrategy");
-    strategy = await Strategy.deploy(
+    strategy = (await upgrades.deployProxy(Strategy, [
       pid,
       minEarnAmount,
       enableAutoHarvest,
       addresses,
       earnedToToken0Path,
       earnedToToken1Path,
-      token0ToEarnedPath,
-      token1ToEarnedPath
-    );
+    ])) as PancakeStrategy;
     await strategy.deployed();
     console.log("local deployments end");
     const amount = BigNumber.from("1000").mul(tenPow18);
@@ -110,7 +115,12 @@ describe("Strategy", () => {
     console.log("liquidity added");
     const balanceLP = await want.balanceOf(helioFarming.address);
     console.log("balance of lp is", balanceLP.toString());
+
+    // snapshot a network
+    await networkSnapshotter.firstSnapshot();
   });
+
+  afterEach("revert", async () => await networkSnapshotter.revert());
 
   it("deposit", async () => {
     await want.connect(helioFarming).approve(strategy.address, MaxUint256);

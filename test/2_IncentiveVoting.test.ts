@@ -1,6 +1,6 @@
 import chai, { assert, expect } from "chai";
 import chaiAsPromised from "chai-as-promised";
-import { ethers } from "hardhat";
+import { ethers, upgrades } from "hardhat";
 import { BigNumber } from "ethers";
 import { solidity } from "ethereum-waffle";
 
@@ -68,7 +68,12 @@ describe("IncentiveVoting", () => {
 
     const tokens = [helio.address, helioLp.address];
     const coefficients = [helioCoefficient, helioLpCoefficient];
-    tokenBonding = await TokenBonding.connect(deployer).deploy(startTime, tokens, coefficients);
+    tokenBonding = (await upgrades.deployProxy(TokenBonding, [
+      startTime,
+      tokens,
+      coefficients,
+    ])) as TokenBonding;
+    await tokenBonding.deployed();
 
     // mint tokens
     const amount = BigNumber.from("100000").mul(tenPow18);
@@ -102,11 +107,16 @@ describe("IncentiveVoting", () => {
     const FakeToken = await ethers.getContractFactory("FakeERC20");
 
     // deploy contracts
-    incentiveVoting = await IncentiveVoting.connect(deployer).deploy(tokenBonding.address);
+    incentiveVoting = (await upgrades.deployProxy(IncentiveVoting, [
+      tokenBonding.address,
+    ])) as IncentiveVoting;
     await incentiveVoting.deployed();
     rewardToken = await FakeToken.connect(deployer).deploy("Reward Token", "Reward");
     await rewardToken.deployed();
-    farming = await Farming.connect(deployer).deploy(rewardToken.address, incentiveVoting.address);
+    farming = (await upgrades.deployProxy(Farming, [
+      rewardToken.address,
+      incentiveVoting.address,
+    ])) as Farming;
     await farming.deployed();
     firstFarmTkn = await FakeToken.connect(deployer).deploy("First Farming", "First");
     await firstFarmTkn.deployed();
@@ -128,7 +138,7 @@ describe("IncentiveVoting", () => {
       [AddressZero, AddressZero]
     );
 
-    await networkSnapshotter.snapshot();
+    await networkSnapshotter.firstSnapshot();
   });
 
   afterEach("revert", async () => await networkSnapshotter.revert());
@@ -160,9 +170,15 @@ describe("IncentiveVoting", () => {
       const TokenBonding = await ethers.getContractFactory("TokenBonding");
       const IncentiveVoting = await ethers.getContractFactory("IncentiveVoting");
       const newStartTime = await getNextTimestampDivisibleBy(week.toNumber());
-      const newTokenBonding = await TokenBonding.deploy(newStartTime, [], []);
+      const newTokenBonding = (await upgrades.deployProxy(TokenBonding, [
+        newStartTime,
+        [],
+        [],
+      ])) as TokenBonding;
       await newTokenBonding.deployed();
-      const newIncentiveVoting = await IncentiveVoting.deploy(newTokenBonding.address);
+      const newIncentiveVoting = (await upgrades.deployProxy(IncentiveVoting, [
+        newTokenBonding.address,
+      ])) as IncentiveVoting;
       await newIncentiveVoting.deployed();
 
       assert.isTrue(newStartTime.gt(await getTimestamp()));
@@ -174,9 +190,9 @@ describe("IncentiveVoting", () => {
       const IncentiveVoting = await ethers.getContractFactory("IncentiveVoting");
 
       // deploy contracts
-      const newIncentiveVoting = await IncentiveVoting.connect(deployer).deploy(
-        tokenBonding.address
-      );
+      const newIncentiveVoting = (await upgrades.deployProxy(IncentiveVoting, [
+        tokenBonding.address,
+      ])) as IncentiveVoting;
       await expect(
         newIncentiveVoting.setFarming(
           farming.address,
@@ -203,29 +219,6 @@ describe("IncentiveVoting", () => {
         incentiveVoting.connect(signer3).addTokenApproval(AddressZero, AddressZero, false)
       ).to.eventually.be.rejectedWith("Ownable: caller is not the owner");
     });
-
-    // it("function works as expected", async () => {
-    //   const FakeToken = await ethers.getContractFactory("FakeERC20");
-    //   const newToken = await FakeToken.deploy("New Token", "NTK");
-    //   await newToken.deployed();
-
-    //   const isApprovedBefore = await incentiveVoting.isApproved(newToken.address);
-    //   const approvedTokensLengthBefore = await incentiveVoting.approvedTokensLength();
-
-    //   assert.isFalse(isApprovedBefore);
-
-    //   await incentiveVoting
-    //     .connect(deployer)
-    //     .addTokenApproval(newToken.address, AddressZero, false);
-
-    //   const isApprovedAfter = await incentiveVoting.isApproved(newToken.address);
-
-    //   assert.isTrue(isApprovedAfter);
-
-    //   expect(await incentiveVoting.approvedTokensLength()).to.be.equal(
-    //     approvedTokensLengthBefore.add(1)
-    //   );
-    // });
   });
 
   describe("# adding/removing reward tokens to contract", () => {

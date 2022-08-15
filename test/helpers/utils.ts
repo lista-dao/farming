@@ -1,5 +1,28 @@
 import { BigNumber } from "ethers";
-import { ethers, network } from "hardhat";
+import hre, { ethers, network } from "hardhat";
+
+export const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+export const verifyContract = async (
+  contractAddress: string,
+  constructorArguments: Array<string>
+) => {
+  try {
+    const tx = await hre.run("verify:verify", {
+      address: contractAddress,
+      constructorArguments,
+    });
+    console.log(tx);
+
+    await sleep(16000);
+  } catch (error) {
+    console.log("error is ->");
+    console.log(error);
+    console.log("cannot verify contract", contractAddress);
+    await sleep(16000);
+  }
+  console.log("contract", contractAddress, "verified successfully");
+};
 
 export const advanceTime = async (seconds: number) => {
   await network.provider.send("evm_increaseTime", [seconds]);
@@ -49,6 +72,8 @@ export const getNextTimestampDivisibleBy = async (num: number): Promise<BigNumbe
 };
 
 export default {
+  sleep,
+  verifyContract,
   advanceTime,
   advanceBlock,
   advanceBlockAndTime,

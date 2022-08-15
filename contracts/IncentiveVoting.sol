@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.15;
+pragma solidity ^0.8.15;
 
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import { IERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 
 import { IFarming } from "./interfaces/IFarming.sol";
 import { ITokenBonding } from "./interfaces/ITokenBonding.sol";
 import { IIncentiveVoting } from "./interfaces/IIncentiveVoting.sol";
 
-contract IncentiveVoting is IIncentiveVoting, Ownable {
+contract IncentiveVoting is IIncentiveVoting, Initializable, OwnableUpgradeable {
   struct Vote {
     address token;
     uint256 votes;
@@ -29,9 +30,7 @@ contract IncentiveVoting is IIncentiveVoting, Ownable {
   // week -> addedRewards
   uint256[65535] public totalRewards;
 
-  // TODO: remove for mainnet
-  uint256 private constant WEEK = 1 hours;
-  // uint256 private constant WEEK = 1 weeks;
+  uint256 internal constant WEEK = 1 weeks;
   uint256 public override startTime;
 
   ITokenBonding public tokenBonding;
@@ -40,7 +39,7 @@ contract IncentiveVoting is IIncentiveVoting, Ownable {
   mapping(uint256 => address) public tokenByPid;
   uint256[] public approvedPids;
 
-  IERC20 public rewardToken;
+  IERC20Upgradeable public rewardToken;
 
   event VotedForIncentives(
     address indexed voter,
@@ -57,7 +56,8 @@ contract IncentiveVoting is IIncentiveVoting, Ownable {
     uint256 totalAmount
   );
 
-  constructor(ITokenBonding _tokenBonding) {
+  function initialize(ITokenBonding _tokenBonding) public initializer {
+    __Ownable_init();
     tokenBonding = _tokenBonding;
     startTime = _tokenBonding.startTime();
   }
@@ -66,7 +66,7 @@ contract IncentiveVoting is IIncentiveVoting, Ownable {
     IFarming _farming,
     address[] memory _initialApprovedTokens,
     address[] memory _strategies
-  ) external returns (uint256[] memory) {
+  ) external virtual returns (uint256[] memory) {
     require(address(farming) == address(0), "farming address can be set only once");
     uint256 length = _initialApprovedTokens.length;
     require(length == _strategies.length, "lengths are not equal");
@@ -87,7 +87,7 @@ contract IncentiveVoting is IIncentiveVoting, Ownable {
     return approvedPids.length;
   }
 
-  function getWeek() public view returns (uint256) {
+  function getWeek() public view virtual returns (uint256) {
     if (startTime > block.timestamp) return 0;
     return (block.timestamp - startTime) / WEEK;
   }
@@ -100,6 +100,7 @@ contract IncentiveVoting is IIncentiveVoting, Ownable {
   function getVotes(uint256 _week)
     external
     view
+    virtual
     returns (uint256 _totalVotes, Vote[] memory _voteData)
   {
     _voteData = new Vote[](approvedPids.length);
@@ -118,6 +119,7 @@ contract IncentiveVoting is IIncentiveVoting, Ownable {
   function getUserVotes(address _user, uint256 _week)
     external
     view
+    virtual
     returns (uint256 _totalVotes, Vote[] memory _voteData)
   {
     _voteData = new Vote[](approvedPids.length);
@@ -133,7 +135,7 @@ contract IncentiveVoting is IIncentiveVoting, Ownable {
     @param _user Address to query
     @return uint Amount of unused votes
   */
-  function availableVotes(address _user) external view returns (uint256) {
+  function availableVotes(address _user) external view virtual returns (uint256) {
     uint256 week = getWeek();
     uint256 usedVotes = userVotes[_user][week];
     uint256 _totalVotes = tokenBonding.userWeight(_user) / 1e18;
@@ -155,7 +157,7 @@ contract IncentiveVoting is IIncentiveVoting, Ownable {
                     allocated 100 votes and wish to allocate a total of 300,
                     the vote amount should be given as 200.
   */
-  function vote(uint256[] calldata _pids, uint256[] calldata _votes) external {
+  function vote(uint256[] calldata _pids, uint256[] calldata _votes) external virtual {
     require(_pids.length == _votes.length, "Input length mismatch");
 
     // update rewards per second, if required
@@ -186,7 +188,12 @@ contract IncentiveVoting is IIncentiveVoting, Ownable {
           Called by `EllipsisLpStaker` when determining the emissions that each
           pool is entitled to.
   */
-  function getRewardsPerSecond(uint256 _pid, uint256 _week) external view returns (uint256) {
+  function getRewardsPerSecond(uint256 _pid, uint256 _week)
+    external
+    view
+    virtual
+    returns (uint256)
+  {
     if (_week == 0) return 0;
     // weekly rewards are calculated based on the previous week's votes
     _week -= 1;
@@ -207,14 +214,14 @@ contract IncentiveVoting is IIncentiveVoting, Ownable {
     address _token,
     address _strategy,
     bool _withUpdate
-  ) external onlyOwner returns (uint256) {
+  ) external virtual onlyOwner returns (uint256) {
     uint256 pid = approvedPids.length;
     tokenByPid[pid] = _token;
     approvedPids.push(pid);
     return farming.addPool(_token, _strategy, _withUpdate);
   }
 
-  function addReward(uint256 week, uint256 amount) external {
+  function addReward(uint256 week, uint256 amount) external virtual {
     uint256 currentWeek = getWeek();
     require(currentWeek <= week, "You can add rewards starting from the current week");
     rewardToken.transferFrom(msg.sender, address(this), amount);
@@ -223,7 +230,7 @@ contract IncentiveVoting is IIncentiveVoting, Ownable {
     emit RewardChanged(msg.sender, week, int256(amount), totalAmount);
   }
 
-  function removeReward(uint256 week, uint256 amount) external onlyOwner {
+  function removeReward(uint256 week, uint256 amount) external virtual onlyOwner {
     uint256 currentWeek = getWeek();
     require(currentWeek < week, "You can remove rewards starting from the next week");
     uint256 totalAmount = totalRewards[week] - amount;

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.15;
+pragma solidity ^0.8.15;
 
 interface IPancakeswapFarm {
   function poolLength() external view returns (uint256);

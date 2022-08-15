@@ -1,18 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import { IERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
+import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import { SafeERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
 import { IFarming } from "./interfaces/IFarming.sol";
 import { IStrategy } from "./interfaces/IStrategy.sol";
 import { ITokenBonding } from "./interfaces/ITokenBonding.sol";
 import { IIncentiveVoting } from "./interfaces/IIncentiveVoting.sol";
 
-contract Farming is IFarming, ReentrancyGuard, Ownable {
-  using SafeERC20 for IERC20;
+contract Farming is IFarming, Initializable, ReentrancyGuardUpgradeable, OwnableUpgradeable {
+  using SafeERC20Upgradeable for IERC20Upgradeable;
 
   // Info of each user.
   struct UserInfo {
@@ -22,16 +23,14 @@ contract Farming is IFarming, ReentrancyGuard, Ownable {
   }
   // Info of each pool.
   struct PoolInfo {
-    IERC20 token;
+    IERC20Upgradeable token;
     IStrategy strategy;
     uint256 rewardsPerSecond;
     uint256 lastRewardTime; // Last second that reward distribution occurs.
     uint256 accRewardPerShare; // Accumulated rewards per share, times 1e12. See below.
   }
 
-  // TODO: remove for mainnet
-  uint256 private constant WEEK = 1 hours;
-  // uint256 private constant WEEK = 1 weeks;
+  uint256 internal constant WEEK = 1 weeks;
 
   // Info of each pool.
   // address[] public registeredTokens;
@@ -41,7 +40,7 @@ contract Farming is IFarming, ReentrancyGuard, Ownable {
   // pid => user => Info of each user that stakes LP tokens.
   mapping(uint256 => mapping(address => UserInfo)) public userInfo;
   // The timestamp when reward mining starts.
-  uint256 public immutable startTime;
+  uint256 public startTime;
 
   // account earning rewards => receiver of rewards for this account
   // if receiver is set to address(0), rewards are paid to the earner
@@ -52,8 +51,8 @@ contract Farming is IFarming, ReentrancyGuard, Ownable {
   // `deposit` or `claim` on behalf of an account
   mapping(address => bool) public blockThirdPartyActions;
 
-  IERC20 public immutable rewardToken;
-  IIncentiveVoting public immutable incentiveVoting;
+  IERC20Upgradeable public rewardToken;
+  IIncentiveVoting public incentiveVoting;
 
   event Deposit(address indexed user, uint256 indexed pid, uint256 amount);
   event Withdraw(address indexed user, uint256 indexed pid, uint256 amount);
@@ -65,7 +64,12 @@ contract Farming is IFarming, ReentrancyGuard, Ownable {
     uint256 amount
   );
 
-  constructor(IERC20 _rewardToken, IIncentiveVoting _incentiveVoting) {
+  function initialize(IERC20Upgradeable _rewardToken, IIncentiveVoting _incentiveVoting)
+    public
+    initializer
+  {
+    __ReentrancyGuard_init();
+    __Ownable_init();
     startTime = _incentiveVoting.startTime();
     rewardToken = _rewardToken;
     incentiveVoting = _incentiveVoting;
@@ -86,14 +90,14 @@ contract Farming is IFarming, ReentrancyGuard, Ownable {
     address _token,
     address _strategy,
     bool _withUpdate
-  ) external returns (uint256) {
+  ) external virtual returns (uint256) {
     require(msg.sender == address(incentiveVoting), "Sender not incentiveVoting");
     if (_withUpdate) {
       massUpdatePools();
     }
     poolInfo.push(
       PoolInfo({
-        token: IERC20(_token),
+        token: IERC20Upgradeable(_token),
         strategy: IStrategy(_strategy),
         rewardsPerSecond: 0,
         lastRewardTime: block.timestamp,
@@ -109,7 +113,7 @@ contract Farming is IFarming, ReentrancyGuard, Ownable {
           emission claims are transferred to this address
     @param _receiver Claim receiver address
   */
-  function setClaimReceiver(address _receiver) external {
+  function setClaimReceiver(address _receiver) external virtual {
     claimReceiver[msg.sender] = _receiver;
   }
 
@@ -117,12 +121,12 @@ contract Farming is IFarming, ReentrancyGuard, Ownable {
     @notice Allow or block third-party calls to deposit, withdraw
             or claim rewards on behalf of the caller
   */
-  function setBlockThirdPartyActions(bool _block) external {
+  function setBlockThirdPartyActions(bool _block) external virtual {
     blockThirdPartyActions[msg.sender] = _block;
   }
 
   // View function to see staked Want tokens on frontend.
-  function stakedWantTokens(uint256 _pid, address _user) external view returns (uint256) {
+  function stakedWantTokens(uint256 _pid, address _user) external view virtual returns (uint256) {
     PoolInfo storage pool = poolInfo[_pid];
     UserInfo storage user = userInfo[_pid][_user];
 
@@ -135,7 +139,7 @@ contract Farming is IFarming, ReentrancyGuard, Ownable {
   }
 
   // Update reward variables for all pools. Be careful of gas spending!
-  function massUpdatePools() public {
+  function massUpdatePools() public virtual {
     uint256 length = poolInfo.length;
     for (uint256 pid = 0; pid < length; ++pid) {
       updatePool(pid);
@@ -143,7 +147,7 @@ contract Farming is IFarming, ReentrancyGuard, Ownable {
   }
 
   // Update reward variables of the given pool to be up-to-date.
-  function updatePool(uint256 _pid) public returns (uint256 accRewardPerShare) {
+  function updatePool(uint256 _pid) public virtual returns (uint256 accRewardPerShare) {
     PoolInfo storage pool = poolInfo[_pid];
     uint256 lastRewardTime = pool.lastRewardTime;
     require(lastRewardTime > 0, "Invalid pool");
@@ -167,6 +171,7 @@ contract Farming is IFarming, ReentrancyGuard, Ownable {
   function claimableReward(address _user, uint256[] calldata _pids)
     external
     view
+    virtual
     returns (uint256[] memory)
   {
     uint256[] memory claimable = new uint256[](_pids.length);
@@ -185,6 +190,7 @@ contract Farming is IFarming, ReentrancyGuard, Ownable {
   function _getRewardData(uint256 _pid)
     internal
     view
+    virtual
     returns (uint256 accRewardPerShare, uint256 rewardsPerSecond)
   {
     PoolInfo storage pool = poolInfo[_pid];
@@ -218,10 +224,10 @@ contract Farming is IFarming, ReentrancyGuard, Ownable {
   function deposit(
     uint256 _pid,
     uint256 _wantAmt,
-    bool _claimRewards
-  ) public nonReentrant returns (uint256) {
+    bool _claimRewards,
+    address _userAddress
+  ) public virtual nonReentrant returns (uint256) {
     require(_wantAmt > 0, "Cannot deposit zero");
-    address _userAddress = msg.sender;
     uint256 _accRewardPerShare = updatePool(_pid);
     PoolInfo storage pool = poolInfo[_pid];
     UserInfo storage user = userInfo[_pid][_userAddress];
@@ -232,7 +238,7 @@ contract Farming is IFarming, ReentrancyGuard, Ownable {
       if (_claimRewards) {
         pending += user.claimable;
         user.claimable = 0;
-        pending = _safeRewardTransfer(msg.sender, pending);
+        pending = _safeRewardTransfer(_userAddress, pending);
       } else if (pending > 0) {
         user.claimable += pending;
         pending = 0;
@@ -261,7 +267,7 @@ contract Farming is IFarming, ReentrancyGuard, Ownable {
     uint256 _pid,
     uint256 _wantAmt,
     bool _claimRewards
-  ) public nonReentrant returns (uint256) {
+  ) public virtual nonReentrant returns (uint256) {
     address _userAddress = msg.sender;
     require(_wantAmt > 0, "Cannot withdraw zero");
     uint256 accRewardPerShare = updatePool(_pid);
@@ -295,7 +301,7 @@ contract Farming is IFarming, ReentrancyGuard, Ownable {
       user.shares -= sharesRemoved;
     }
 
-    IERC20 token = pool.token;
+    IERC20Upgradeable token = pool.token;
     uint256 wantBal = token.balanceOf(address(this));
     if (wantBal < _wantAmt) {
       _wantAmt = wantBal;
@@ -307,7 +313,7 @@ contract Farming is IFarming, ReentrancyGuard, Ownable {
     return pending;
   }
 
-  function withdrawAll(uint256 _pid, bool _claimRewards) public returns (uint256) {
+  function withdrawAll(uint256 _pid, bool _claimRewards) public virtual returns (uint256) {
     return withdraw(_pid, type(uint256).max, _claimRewards);
   }
 
@@ -318,7 +324,7 @@ contract Farming is IFarming, ReentrancyGuard, Ownable {
     @param _pids Array of LP token addresses to claim for.
     @return uint256 Claimed reward amount
   */
-  function claim(address _user, uint256[] calldata _pids) external returns (uint256) {
+  function claim(address _user, uint256[] calldata _pids) external virtual returns (uint256) {
     if (msg.sender != _user) {
       require(!blockThirdPartyActions[_user], "Cannot claim on behalf of this account");
     }
@@ -338,7 +344,11 @@ contract Farming is IFarming, ReentrancyGuard, Ownable {
   }
 
   // Safe reward token transfer function, just in case if rounding error causes pool to not have enough
-  function _safeRewardTransfer(address _user, uint256 _rewardAmt) internal returns (uint256) {
+  function _safeRewardTransfer(address _user, uint256 _rewardAmt)
+    internal
+    virtual
+    returns (uint256)
+  {
     uint256 rewardBal = rewardToken.balanceOf(address(incentiveVoting));
     if (_rewardAmt > rewardBal) {
       _rewardAmt = rewardBal;
@@ -354,13 +364,13 @@ contract Farming is IFarming, ReentrancyGuard, Ownable {
     return _rewardAmt;
   }
 
-  function inCaseTokensGetStuck(address _token, uint256 _amount) public onlyOwner {
+  function inCaseTokensGetStuck(address _token, uint256 _amount) public virtual onlyOwner {
     require(_token != address(rewardToken), "!safe");
-    IERC20(_token).safeTransfer(msg.sender, _amount);
+    IERC20Upgradeable(_token).safeTransfer(msg.sender, _amount);
   }
 
   // Withdraw without caring about rewards. EMERGENCY ONLY.
-  function emergencyWithdraw(uint256 _pid) public nonReentrant {
+  function emergencyWithdraw(uint256 _pid) public virtual nonReentrant {
     address _userAddress = msg.sender;
     PoolInfo storage pool = poolInfo[_pid];
     UserInfo storage user = userInfo[_pid][_userAddress];

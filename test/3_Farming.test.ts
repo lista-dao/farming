@@ -1,6 +1,6 @@
 import chai, { assert, expect } from "chai";
 import chaiAsPromised from "chai-as-promised";
-import { ethers } from "hardhat";
+import { ethers, upgrades } from "hardhat";
 import { BigNumber } from "ethers";
 import { solidity } from "ethereum-waffle";
 
@@ -75,7 +75,12 @@ describe("Farming", () => {
 
     const tokens = [helio.address, helioLp.address];
     const coefficients = [helioCoefficient, helioLpCoefficient];
-    tokenBonding = await TokenBonding.connect(deployer).deploy(startTime, tokens, coefficients);
+    tokenBonding = (await upgrades.deployProxy(TokenBonding, [
+      startTime,
+      tokens,
+      coefficients,
+    ])) as TokenBonding;
+    await tokenBonding.deployed();
 
     // mint tokens
     const amount = BigNumber.from("100000").mul(tenPow18);
@@ -110,11 +115,16 @@ describe("Farming", () => {
     const Strategy = await ethers.getContractFactory("StrategyMock");
 
     // deploy contracts
-    incentiveVoting = await IncentiveVoting.connect(deployer).deploy(tokenBonding.address);
+    incentiveVoting = (await upgrades.deployProxy(IncentiveVoting, [
+      tokenBonding.address,
+    ])) as IncentiveVoting;
     await incentiveVoting.deployed();
     rewardToken = await FakeToken.connect(deployer).deploy("Reward Token", "Reward");
     await rewardToken.deployed();
-    farming = await Farming.connect(deployer).deploy(rewardToken.address, incentiveVoting.address);
+    farming = (await upgrades.deployProxy(Farming, [
+      rewardToken.address,
+      incentiveVoting.address,
+    ])) as Farming;
     await farming.deployed();
     firstFarmTkn = await FakeToken.connect(deployer).deploy("First Farming", "First");
     await firstFarmTkn.deployed();
@@ -161,7 +171,7 @@ describe("Farming", () => {
     await incentiveVoting.connect(signer1).vote(tokens, votes);
 
     // snapshot a network
-    await networkSnapshotter.snapshot();
+    await networkSnapshotter.firstSnapshot();
   });
 
   afterEach("revert", async () => await networkSnapshotter.revert());
@@ -276,7 +286,7 @@ describe("Farming", () => {
 
   describe("# deposit", () => {
     it("cannot deposit 0", async () => {
-      await expect(farming.deposit(0, 0, false)).to.eventually.be.rejectedWith(
+      await expect(farming.deposit(0, 0, false, deployer.address)).to.eventually.be.rejectedWith(
         Error,
         "Cannot deposit zero"
       );
@@ -286,7 +296,7 @@ describe("Farming", () => {
       const errCode = "0x32";
       const wantAmount = BigNumber.from("1000").mul(tenPow18);
       await expect(
-        farming.connect(signer1).deposit(2, wantAmount, false)
+        farming.connect(signer1).deposit(2, wantAmount, false, signer1.address)
       ).to.eventually.be.rejectedWith(Error, errCode);
     });
 
@@ -294,7 +304,7 @@ describe("Farming", () => {
       const wantAmount = BigNumber.from("1000").mul(tenPow18);
       const pid = BigNumber.from(0);
       const userInfoBefore = await farming.userInfo(pid, signer1.address);
-      await expect(farming.connect(signer1).deposit(pid, wantAmount, false))
+      await expect(farming.connect(signer1).deposit(pid, wantAmount, false, signer1.address))
         .to.emit(farming, "Deposit")
         .and.to.emit(firstFarmTkn, "Transfer")
         .and.to.emit(firstFarmTkn, "Transfer");
@@ -335,7 +345,7 @@ describe("Farming", () => {
       const wantAmount = BigNumber.from("1000").mul(tenPow18);
       const pid = BigNumber.from(0);
       // deposit
-      await farming.connect(signer1).deposit(pid, wantAmount, false);
+      await farming.connect(signer1).deposit(pid, wantAmount, false, signer1.address);
       // withdraw
       await expect(farming.connect(signer1).withdraw(pid, wantAmount.div(2), false))
         .to.emit(farming, "Withdraw")
@@ -346,7 +356,7 @@ describe("Farming", () => {
       const wantAmount = BigNumber.from("1000").mul(tenPow18);
       const pid = BigNumber.from(0);
       // deposit
-      await farming.connect(signer1).deposit(pid, wantAmount, false);
+      await farming.connect(signer1).deposit(pid, wantAmount, false, signer1.address);
 
       const wantLockedTotal = await firstStrategy.wantLockedTotal();
       const sharesTotal = await firstStrategy.sharesTotal();
@@ -373,7 +383,7 @@ describe("Farming", () => {
       const pids = [pid];
       const wantAmount = BigNumber.from("1000").mul(tenPow18);
       // deposit
-      await farming.connect(signer1).deposit(pid, wantAmount, false);
+      await farming.connect(signer1).deposit(pid, wantAmount, false, signer1.address);
 
       await advanceTime(week.toNumber());
       const claimable = await farming.claimableReward(signer1.address, pids);
@@ -395,7 +405,7 @@ describe("Farming", () => {
       // set claim receiver
       await farming.connect(signer1).setClaimReceiver(signer3.address);
       // deposit
-      await farming.connect(signer1).deposit(pid, wantAmount, false);
+      await farming.connect(signer1).deposit(pid, wantAmount, false, signer1.address);
 
       await advanceTime(week.toNumber());
       const claimable = await farming.claimableReward(signer1.address, pids);
@@ -417,7 +427,7 @@ describe("Farming", () => {
       const pids = [pid];
       const wantAmount = BigNumber.from("1000").mul(tenPow18);
       // deposit
-      await farming.connect(signer1).deposit(pid, wantAmount, false);
+      await farming.connect(signer1).deposit(pid, wantAmount, false, signer1.address);
 
       await advanceTime(week.toNumber());
 
@@ -425,7 +435,7 @@ describe("Farming", () => {
       const rewardBalanceBefore = await rewardToken.balanceOf(signer1.address);
 
       // deposit
-      await farming.connect(signer1).deposit(pid, wantAmount, true);
+      await farming.connect(signer1).deposit(pid, wantAmount, true, signer1.address);
       const rewardBalanceAfter = await rewardToken.balanceOf(signer1.address);
       assert.isTrue(rewardBalanceAfter.sub(rewardBalanceBefore).gte(claimable[0]));
       expect((await farming.userInfo(pid, signer1.address)).claimable).to.be.equal(0);
@@ -435,7 +445,7 @@ describe("Farming", () => {
       const pid = BigNumber.from(0);
       const wantAmount = BigNumber.from("1000").mul(tenPow18);
       // deposit
-      await farming.connect(signer1).deposit(pid, wantAmount, false);
+      await farming.connect(signer1).deposit(pid, wantAmount, false, signer1.address);
 
       await advanceTime(week.toNumber());
 
@@ -443,7 +453,7 @@ describe("Farming", () => {
       const userClaimableBefore = (await farming.userInfo(pid, signer1.address)).claimable;
 
       // deposit
-      await farming.connect(signer1).deposit(pid, wantAmount, false);
+      await farming.connect(signer1).deposit(pid, wantAmount, false, signer1.address);
 
       const rewardBalanceAfter = await rewardToken.balanceOf(signer1.address);
       const userClaimableAfter = (await farming.userInfo(pid, signer1.address)).claimable;
@@ -457,7 +467,7 @@ describe("Farming", () => {
       const pids = [pid];
       const wantAmount = BigNumber.from("1000").mul(tenPow18);
       // deposit
-      await farming.connect(signer1).deposit(pid, wantAmount, false);
+      await farming.connect(signer1).deposit(pid, wantAmount, false, signer1.address);
 
       await advanceTime(week.toNumber());
 
@@ -475,7 +485,7 @@ describe("Farming", () => {
       const pid = BigNumber.from(0);
       const wantAmount = BigNumber.from("1000").mul(tenPow18);
       // deposit
-      await farming.connect(signer1).deposit(pid, wantAmount, false);
+      await farming.connect(signer1).deposit(pid, wantAmount, false, signer1.address);
 
       await advanceTime(week.toNumber());
 
@@ -527,7 +537,7 @@ describe("Farming", () => {
       const pids = [pid];
       const wantAmount = BigNumber.from("1000").mul(tenPow18);
       // deposit
-      await farming.connect(signer1).deposit(pid, wantAmount, false);
+      await farming.connect(signer1).deposit(pid, wantAmount, false, signer1.address);
 
       await advanceTime(week.toNumber());
 

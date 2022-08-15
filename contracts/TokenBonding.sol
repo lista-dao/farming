@@ -1,27 +1,32 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import { IERC20, IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import { SafeERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+import { IERC20Upgradeable, IERC20MetadataUpgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
 
 import { ITokenBonding } from "./interfaces/ITokenBonding.sol";
 
-contract TokenBonding is IERC20Metadata, ITokenBonding, Ownable, ReentrancyGuard {
-  using SafeERC20 for IERC20;
+contract TokenBonding is
+  IERC20MetadataUpgradeable,
+  ITokenBonding,
+  Initializable,
+  OwnableUpgradeable,
+  ReentrancyGuardUpgradeable
+{
+  using SafeERC20Upgradeable for IERC20Upgradeable;
 
   event TokenAdded(address indexed token, uint256 coefficient);
   event UnbondingRequest(address indexed token, uint256 amount, uint256 timestamp);
 
-  string private constant NAME = "veHELIO";
-  string private constant SYMBOL = "veHELIO";
-  uint8 private constant DECIMALS = 18;
-  // TODO: remove for mainnet
-  uint256 private constant WEEK = 1 hours;
-  // uint256 private constant WEEK = 1 weeks;
-  uint256 private _totalSupply;
-  uint256 private _totalWeight;
+  string internal constant NAME = "veHELIO";
+  string internal constant SYMBOL = "veHELIO";
+  uint8 internal constant DECIMALS = 18;
+  uint256 internal constant WEEK = 1 weeks;
+  uint256 internal _totalSupply;
+  uint256 internal _totalWeight;
 
   struct TokenInfo {
     uint240 coefficient;
@@ -35,9 +40,9 @@ contract TokenBonding is IERC20Metadata, ITokenBonding, Ownable, ReentrancyGuard
     uint256 requestTime;
   }
 
-  mapping(address => mapping(address => StakeInfo)) private _userStakeInfo;
-  mapping(address => TokenInfo) private _tokenInfo;
-  address[] private _tokens;
+  mapping(address => mapping(address => StakeInfo)) internal _userStakeInfo;
+  mapping(address => TokenInfo) internal _tokenInfo;
+  address[] internal _tokens;
 
   uint256 public startTime;
 
@@ -46,11 +51,13 @@ contract TokenBonding is IERC20Metadata, ITokenBonding, Ownable, ReentrancyGuard
     _;
   }
 
-  constructor(
+  function initialize(
     uint256 startTime_,
     address[] memory tokens_,
     uint240[] memory coefficients_
-  ) {
+  ) public initializer {
+    __Ownable_init();
+    __ReentrancyGuard_init();
     require(
       (startTime_ / WEEK) * WEEK == startTime_ && startTime_ > block.timestamp,
       "!epoch week"
@@ -85,7 +92,7 @@ contract TokenBonding is IERC20Metadata, ITokenBonding, Ownable, ReentrancyGuard
     return _totalSupply;
   }
 
-  function balanceOf(address user_) external view returns (uint256) {
+  function balanceOf(address user_) external view virtual returns (uint256) {
     uint256 userBalance_;
     unchecked {
       for (uint256 i; i < _tokens.length; ++i) {
@@ -98,7 +105,7 @@ contract TokenBonding is IERC20Metadata, ITokenBonding, Ownable, ReentrancyGuard
     return userBalance_;
   }
 
-  function userWeight(address user_) external view returns (uint256) {
+  function userWeight(address user_) external view virtual returns (uint256) {
     uint256 userWeight_;
     for (uint256 i; i < _tokens.length; ++i) {
       userWeight_ +=
@@ -112,11 +119,11 @@ contract TokenBonding is IERC20Metadata, ITokenBonding, Ownable, ReentrancyGuard
     return _totalWeight;
   }
 
-  function allowance(address, address) external pure returns (uint256) {
+  function allowance(address, address) external pure virtual returns (uint256) {
     return 0;
   }
 
-  function transfer(address, uint256) external returns (bool) {
+  function transfer(address, uint256) external virtual returns (bool) {
     _nonTransferable();
   }
 
@@ -124,11 +131,11 @@ contract TokenBonding is IERC20Metadata, ITokenBonding, Ownable, ReentrancyGuard
     address,
     address,
     uint256
-  ) external returns (bool) {
+  ) external virtual returns (bool) {
     _nonTransferable();
   }
 
-  function approve(address, uint256) external returns (bool) {
+  function approve(address, uint256) external virtual returns (bool) {
     _nonTransferable();
   }
 
@@ -136,11 +143,15 @@ contract TokenBonding is IERC20Metadata, ITokenBonding, Ownable, ReentrancyGuard
     revert("NON-TRANSFERABLE TOKEN");
   }
 
-  function bond(address token_, uint256 amount_) external isStarted {
+  function bond(address token_, uint256 amount_) external virtual isStarted {
     _bond(token_, amount_, msg.sender);
   }
 
-  function bondBatch(address[] memory tokens_, uint256[] memory amounts_) external isStarted {
+  function bondBatch(address[] memory tokens_, uint256[] memory amounts_)
+    external
+    virtual
+    isStarted
+  {
     uint256 length_ = tokens_.length;
     address user_ = msg.sender;
     require(length_ == amounts_.length, "tokens length must be equal to amounts length");
@@ -155,9 +166,9 @@ contract TokenBonding is IERC20Metadata, ITokenBonding, Ownable, ReentrancyGuard
     address token_,
     uint256 amount_,
     address user_
-  ) internal nonReentrant {
+  ) internal virtual nonReentrant {
     require(amount_ > 0, "cannot bond zero amount");
-    IERC20(token_).safeTransferFrom(user_, address(this), amount_);
+    IERC20Upgradeable(token_).safeTransferFrom(user_, address(this), amount_);
     TokenInfo storage tokenInfo_ = _tokenInfo[token_];
     require(tokenInfo_.index != 0, "Unsupported Token");
     StakeInfo storage userStakeInfo_ = _userStakeInfo[user_][token_];
@@ -169,12 +180,13 @@ contract TokenBonding is IERC20Metadata, ITokenBonding, Ownable, ReentrancyGuard
     emit Transfer(address(0), user_, veTokenAmount);
   }
 
-  function requestUnbond(address token_, uint256 amount_) external isStarted {
+  function requestUnbond(address token_, uint256 amount_) external virtual isStarted {
     _requestUnbond(token_, amount_, msg.sender);
   }
 
   function requestUnbondBatch(address[] memory tokens_, uint256[] memory amounts_)
     external
+    virtual
     isStarted
   {
     uint256 length_ = tokens_.length;
@@ -191,7 +203,7 @@ contract TokenBonding is IERC20Metadata, ITokenBonding, Ownable, ReentrancyGuard
     address token_,
     uint256 amount_,
     address user_
-  ) internal {
+  ) internal virtual {
     StakeInfo storage userStakeInfo_ = _userStakeInfo[user_][token_];
     uint256 timestamp_ = uint256(block.timestamp);
     if (amount_ == type(uint256).max) {
@@ -205,11 +217,11 @@ contract TokenBonding is IERC20Metadata, ITokenBonding, Ownable, ReentrancyGuard
     emit UnbondingRequest(token_, amount_, timestamp_);
   }
 
-  function unbond(address token_) external {
+  function unbond(address token_) external virtual {
     _unbond(token_, msg.sender);
   }
 
-  function unbondBatch(address[] memory tokens_) external {
+  function unbondBatch(address[] memory tokens_) external virtual {
     uint256 length_ = tokens_.length;
     address user_ = msg.sender;
     unchecked {
@@ -219,7 +231,7 @@ contract TokenBonding is IERC20Metadata, ITokenBonding, Ownable, ReentrancyGuard
     }
   }
 
-  function _unbond(address token_, address user_) internal nonReentrant {
+  function _unbond(address token_, address user_) internal virtual nonReentrant {
     StakeInfo storage userStakeInfo_ = _userStakeInfo[user_][token_];
     TokenInfo storage tokenInfo_ = _tokenInfo[token_];
     uint256 timestamp_ = uint256(block.timestamp);
@@ -230,15 +242,18 @@ contract TokenBonding is IERC20Metadata, ITokenBonding, Ownable, ReentrancyGuard
     tokenInfo_.totalStaked -= amount_;
     userStakeInfo_.wantClaim = 0;
     _totalSupply -= veTokenAmount;
-    IERC20(token_).safeTransfer(user_, amount_);
+    IERC20Upgradeable(token_).safeTransfer(user_, amount_);
     emit Transfer(user_, address(0), veTokenAmount);
   }
 
-  function decreaseUnbondAmount(address token_, uint256 amount_) external {
+  function decreaseUnbondAmount(address token_, uint256 amount_) external virtual {
     _decreaseUnbondAmount(token_, amount_, msg.sender);
   }
 
-  function decreaseUnbondAmountBatch(address[] memory tokens_, uint256[] memory amounts_) external {
+  function decreaseUnbondAmountBatch(address[] memory tokens_, uint256[] memory amounts_)
+    external
+    virtual
+  {
     uint256 length_ = tokens_.length;
     address user_ = msg.sender;
     require(length_ == amounts_.length, "tokens length must be equal to amounts length");
@@ -253,7 +268,7 @@ contract TokenBonding is IERC20Metadata, ITokenBonding, Ownable, ReentrancyGuard
     address token_,
     uint256 amount_,
     address user_
-  ) internal {
+  ) internal virtual {
     StakeInfo storage userStakeInfo_ = _userStakeInfo[user_][token_];
     uint256 wantClaim_ = userStakeInfo_.wantClaim;
     if (amount_ == type(uint256).max) {
@@ -269,7 +284,7 @@ contract TokenBonding is IERC20Metadata, ITokenBonding, Ownable, ReentrancyGuard
     }
   }
 
-  function addToken(address newToken_, uint240 coefficient_) external onlyOwner {
+  function addToken(address newToken_, uint240 coefficient_) external virtual onlyOwner {
     require(_tokenInfo[newToken_].index == 0, "Token already added");
     _tokens.push(newToken_);
     _tokenInfo[newToken_] = TokenInfo({
@@ -281,7 +296,7 @@ contract TokenBonding is IERC20Metadata, ITokenBonding, Ownable, ReentrancyGuard
     emit TokenAdded(newToken_, coefficient_);
   }
 
-  function tokenInfo(address token_) public view returns (TokenInfo memory) {
+  function tokenInfo(address token_) public view virtual returns (TokenInfo memory) {
     TokenInfo memory tokenInfo_ = _tokenInfo[token_];
     require(tokenInfo_.index != 0, "Unsupported token");
     return tokenInfo_;
@@ -295,11 +310,11 @@ contract TokenBonding is IERC20Metadata, ITokenBonding, Ownable, ReentrancyGuard
     return _tokens.length;
   }
 
-  function getTokenByIndex(uint256 index) external view returns (address) {
+  function getTokenByIndex(uint256 index) external view virtual returns (address) {
     return _tokens[index - 1];
   }
 
-  function getTokenInfoByIndex(uint256 index) external view returns (TokenInfo memory) {
+  function getTokenInfoByIndex(uint256 index) external view virtual returns (TokenInfo memory) {
     return tokenInfo(_tokens[index - 1]);
   }
 }

@@ -1,6 +1,6 @@
 import chai, { assert, expect } from "chai";
 import chaiAsPromised from "chai-as-promised";
-import { ethers } from "hardhat";
+import { ethers, upgrades } from "hardhat";
 import { BigNumber } from "ethers";
 import { solidity } from "ethereum-waffle";
 
@@ -67,7 +67,13 @@ describe("TokenBonding", () => {
 
     const tokens = [helio.address, helioLp.address];
     const coefficients = [helioCoefficient, helioLpCoefficient];
-    tokenBonding = await TokenBonding.connect(deployer).deploy(startTime, tokens, coefficients);
+
+    tokenBonding = (await upgrades.deployProxy(TokenBonding, [
+      startTime,
+      tokens,
+      coefficients,
+    ])) as TokenBonding;
+    await tokenBonding.deployed();
 
     // mint tokens
     const amount = BigNumber.from("100000").mul(tenPow18);
@@ -77,7 +83,7 @@ describe("TokenBonding", () => {
     await helio.mint(signer2.address, amount);
     await helioLp.mint(signer2.address, amount);
 
-    await networkSnapshotter.snapshot();
+    await networkSnapshotter.firstSnapshot();
   });
 
   afterEach("revert", async () => await networkSnapshotter.revert());
@@ -88,7 +94,7 @@ describe("TokenBonding", () => {
       expect(wrongStartTime.div(week).mul(week)).to.not.be.equal(wrongStartTime);
       const TokenBonding = await ethers.getContractFactory("TokenBonding");
       await expect(
-        TokenBonding.connect(deployer).deploy(wrongStartTime, [], [])
+        upgrades.deployProxy(TokenBonding, [wrongStartTime, [], []])
       ).to.eventually.be.rejectedWith(Error, "!epoch week");
     });
 
@@ -98,7 +104,7 @@ describe("TokenBonding", () => {
       assert.isTrue(wrongStartTime.lt(now));
       const TokenBonding = await ethers.getContractFactory("TokenBonding");
       await expect(
-        TokenBonding.connect(deployer).deploy(wrongStartTime, [], [])
+        upgrades.deployProxy(TokenBonding, [wrongStartTime, [], []])
       ).to.eventually.be.rejectedWith(Error, "!epoch week");
     });
 
@@ -108,7 +114,7 @@ describe("TokenBonding", () => {
       expect(tokens.length).to.be.not.equal(coefficients.length);
       const TokenBonding = await ethers.getContractFactory("TokenBonding");
       await expect(
-        TokenBonding.connect(deployer).deploy(startTime, tokens, coefficients)
+        upgrades.deployProxy(TokenBonding, [startTime, tokens, coefficients])
       ).to.eventually.be.rejectedWith(Error, "Not equal lengths");
     });
 
@@ -116,11 +122,12 @@ describe("TokenBonding", () => {
       const tokens = [helio.address, helioLp.address];
       const coefficients = [helioCoefficient, helioLpCoefficient];
       const TokenBonding = await ethers.getContractFactory("TokenBonding");
-      const tokenBonding = await TokenBonding.connect(deployer).deploy(
+
+      const tokenBonding = await upgrades.deployProxy(TokenBonding, [
         startTime,
         tokens,
-        coefficients
-      );
+        coefficients,
+      ]);
       await expect(tokenBonding.deployTransaction)
         .to.emit(tokenBonding, "TokenAdded")
         .withArgs(tokens[0], coefficients[0])
