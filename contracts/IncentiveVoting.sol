@@ -57,10 +57,7 @@ contract IncentiveVoting is IIncentiveVoting, Initializable, OwnableUpgradeable 
   );
 
   function initialize(uint256 startTime_) public initializer {
-    require(
-      (startTime_ / WEEK) * WEEK == startTime_ && startTime_ > block.timestamp,
-      "!epoch week"
-    );
+    require(startTime_ > block.timestamp, "!epoch week");
     __Ownable_init();
     startTime = startTime_;
   }
