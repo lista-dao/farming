@@ -116,7 +116,8 @@ contract PancakeStrategy is OwnableUpgradeable, ReentrancyGuardUpgradeable, Paus
     //   _harvest();
     // }
 
-    uint256 sharesRemoved = (_wantAmt * sharesTotal) / wantLockedTotal;
+    // uint256 sharesRemoved = (_wantAmt * sharesTotal) / wantLockedTotal;
+    uint256 sharesRemoved = _wantAmt;
     if (sharesRemoved > sharesTotal) {
       sharesRemoved = sharesTotal;
     }
@@ -129,11 +130,11 @@ contract PancakeStrategy is OwnableUpgradeable, ReentrancyGuardUpgradeable, Paus
       _wantAmt = wantAmt;
     }
 
-    if (wantLockedTotal < _wantAmt) {
-      _wantAmt = wantLockedTotal;
-    }
+    // if (wantLockedTotal < _wantAmt) {
+    //   _wantAmt = wantLockedTotal;
+    // }
 
-    wantLockedTotal -= _wantAmt;
+    // wantLockedTotal -= _wantAmt;
 
     IERC20Upgradeable(want).safeTransfer(helioFarming, _wantAmt);
 
