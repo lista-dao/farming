@@ -8,7 +8,6 @@ const tenPow18 = ten.pow(18);
 const week = daysToSeconds(BigNumber.from(7)); // 7 days
 
 const HAY = "";
-const HELIO = "";
 const MIN_EARN_AMT = "";
 const MASTERCHEF = "";
 const WANT = "";
@@ -54,7 +53,6 @@ const main = async () => {
 
   const addresses = {
     hay: HAY,
-    helio: HELIO,
     incentiveVoting: incentiveVoting.address,
     incentiveVotingImplementation: incentiveVotingImpl,
     farming: farming.address,

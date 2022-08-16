@@ -158,18 +158,4 @@ contract PancakeStrategy is OwnableUpgradeable, ReentrancyGuardUpgradeable, Paus
   function unpause() public onlyOwner {
     _unpause();
   }
-
-  function setAutoHarvest(bool _value) external onlyOwner {
-    enableAutoHarvest = _value;
-  }
-
-  function setSlippageFactor(uint256 _slippageFactor) external onlyOwner {
-    require(_slippageFactor <= SLIPPAGE_FACTOR_UL, "slippageFactor too high");
-    slippageFactor = _slippageFactor;
-  }
-
-  function setMinEarnAmount(uint256 _minEarnAmount) external onlyOwner {
-    require(_minEarnAmount >= MIN_EARN_AMOUNT_LL, "min earn amount is too low");
-    minEarnAmount = _minEarnAmount;
-  }
 }
