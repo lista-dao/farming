@@ -8,6 +8,7 @@ import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/
 import { IERC20Upgradeable, IERC20MetadataUpgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
 
 import { ITokenBonding } from "./interfaces/ITokenBonding.sol";
+import { IIncentiveVoting } from "./interfaces/IIncentiveVoting.sol";
 
 contract TokenBonding is
   IERC20MetadataUpgradeable,
@@ -52,19 +53,15 @@ contract TokenBonding is
   }
 
   function initialize(
-    uint256 startTime_,
+    IIncentiveVoting incentiveVoting_,
     address[] memory tokens_,
     uint240[] memory coefficients_
   ) public initializer {
     __Ownable_init();
     __ReentrancyGuard_init();
-    require(
-      (startTime_ / WEEK) * WEEK == startTime_ && startTime_ > block.timestamp,
-      "!epoch week"
-    );
     uint256 length = tokens_.length;
     require(length == coefficients_.length, "Not equal lengths");
-    startTime = startTime_;
+    startTime = incentiveVoting_.startTime();
     for (uint16 i; i < length; ++i) {
       _tokenInfo[tokens_[i]] = TokenInfo({
         coefficient: coefficients_[i],

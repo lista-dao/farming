@@ -9,7 +9,7 @@ import { IFarming } from "./interfaces/IFarming.sol";
 import { ITokenBonding } from "./interfaces/ITokenBonding.sol";
 import { IIncentiveVoting } from "./interfaces/IIncentiveVoting.sol";
 
-contract IncentiveVoting is IIncentiveVoting, Initializable, OwnableUpgradeable {
+contract IncentiveVotingV2Copy is IIncentiveVoting, Initializable, OwnableUpgradeable {
   struct Vote {
     address token;
     uint256 votes;
@@ -56,13 +56,10 @@ contract IncentiveVoting is IIncentiveVoting, Initializable, OwnableUpgradeable 
     uint256 totalAmount
   );
 
-  function initialize(uint256 startTime_) public initializer {
-    require(
-      (startTime_ / WEEK) * WEEK == startTime_ && startTime_ > block.timestamp,
-      "!epoch week"
-    );
+  function initialize(ITokenBonding _tokenBonding) public initializer {
     __Ownable_init();
-    startTime = startTime_;
+    tokenBonding = _tokenBonding;
+    startTime = _tokenBonding.startTime();
   }
 
   function setFarming(
@@ -139,10 +136,10 @@ contract IncentiveVoting is IIncentiveVoting, Initializable, OwnableUpgradeable 
     @return uint Amount of unused votes
   */
   function availableVotes(address _user) external view virtual returns (uint256) {
-    if (_user == owner()) {
-      return type(uint256).max;
-    }
-    return 0;
+    uint256 week = getWeek();
+    uint256 usedVotes = userVotes[_user][week];
+    uint256 _totalVotes = tokenBonding.userWeight(_user) / 1e18;
+    return _totalVotes - usedVotes;
   }
 
   /**
@@ -160,7 +157,7 @@ contract IncentiveVoting is IIncentiveVoting, Initializable, OwnableUpgradeable 
                     allocated 100 votes and wish to allocate a total of 300,
                     the vote amount should be given as 200.
   */
-  function vote(uint256[] calldata _pids, uint256[] calldata _votes) external virtual onlyOwner {
+  function vote(uint256[] calldata _pids, uint256[] calldata _votes) external virtual {
     require(_pids.length == _votes.length, "Input length mismatch");
 
     // update rewards per second, if required
@@ -178,9 +175,12 @@ contract IncentiveVoting is IIncentiveVoting, Initializable, OwnableUpgradeable 
       usedVotes += amount;
     }
 
+    // make sure user has not exceeded available votes
+    uint256 _totalVotes = tokenBonding.userWeight(msg.sender) / 1e18;
+    require(usedVotes <= _totalVotes, "Available votes exceeded");
     userVotes[msg.sender][week] = usedVotes;
 
-    emit VotedForIncentives(msg.sender, _pids, _votes, usedVotes, type(uint256).max);
+    emit VotedForIncentives(msg.sender, _pids, _votes, usedVotes, _totalVotes);
   }
 
   /**
