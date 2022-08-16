@@ -10,10 +10,10 @@ import {
   getNextTimestampDivisibleBy,
   getTimestamp,
   setTimestamp,
-} from "./helpers/utils";
+} from "../helpers/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { FakeERC20, Farming, IncentiveVoting, TokenBonding } from "../typechain-types";
-import NetworkSnapshotter from "./helpers/NetworkSnapshotter";
+import NetworkSnapshotter from "../helpers/NetworkSnapshotter";
 
 const { AddressZero, MaxUint256 } = ethers.constants;
 

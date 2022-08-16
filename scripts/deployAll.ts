@@ -1,7 +1,7 @@
 import { BigNumber } from "ethers";
 import fs from "fs";
 import hre, { ethers, network, upgrades } from "hardhat";
-import { getNextTimestampDivisibleBy, daysToSeconds } from "./helpers/utils";
+import { getNextTimestampDivisibleBy, daysToSeconds, verifyContract } from "../helpers/utils";
 
 const ten = BigNumber.from(10);
 const tenPow18 = ten.pow(18);
@@ -18,26 +18,6 @@ const TOKEN1 = "";
 const ROUTER = "";
 const EARNED_TO_TOKEN0_PATH: string[] = [];
 const EARNED_TO_TOKEN1_PATH: string[] = [];
-
-const verifyContract = async (contractAddress: string, constructorArguments: Array<any>) => {
-  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-  try {
-    const tx = await hre.run("verify:verify", {
-      address: contractAddress,
-      constructorArguments,
-    });
-    console.log(tx);
-
-    await sleep(16000);
-  } catch (error) {
-    console.log("error is ->");
-    console.log(error);
-    console.log("cannot verify contract", contractAddress);
-    await sleep(16000);
-  }
-  console.log("contract", contractAddress, "verified successfully");
-};
 
 const main = async () => {
   const FarmingFactory = await ethers.getContractFactory("Farming");

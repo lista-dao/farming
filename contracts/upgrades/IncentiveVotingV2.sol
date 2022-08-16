@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
-import { ITokenBonding } from "./interfaces/ITokenBonding.sol";
+import { ITokenBonding } from "../interfaces/ITokenBonding.sol";
 
-import { IncentiveVoting } from "./IncentiveVoting.sol";
+import { IncentiveVoting } from "../IncentiveVoting.sol";
 
 contract IncentiveVotingV2 is IncentiveVoting {
   /**

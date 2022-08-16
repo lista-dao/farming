@@ -1,5 +1,5 @@
 import { ethers, upgrades } from "hardhat";
-import { verifyContract } from "../../test/helpers/utils";
+import { verifyContract } from "../../helpers/utils";
 
 if (!process.env.PANCAKE_STRAT) {
   throw new Error("Pancake strategy address is not setted to .env");

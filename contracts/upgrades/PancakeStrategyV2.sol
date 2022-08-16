@@ -8,9 +8,9 @@ import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/securit
 import { SafeERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
-import { IWBNB } from "./interfaces/IWBNB.sol";
-import { IPancakeswapFarm } from "./interfaces/IPancakeswapFarm.sol";
-import { IPancakeRouter02 } from "./interfaces/IPancakeRouter02.sol";
+import { IWBNB } from "../interfaces/IWBNB.sol";
+import { IPancakeswapFarm } from "../interfaces/IPancakeswapFarm.sol";
+import { IPancakeRouter02 } from "../interfaces/IPancakeRouter02.sol";
 
 // solhint-disable max-states-count
 contract PancakeStrategyV2 is OwnableUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable {
