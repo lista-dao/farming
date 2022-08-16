@@ -1,22 +1,22 @@
-import { BigNumber } from "ethers";
 import fs from "fs";
-import hre, { ethers, network, upgrades } from "hardhat";
-import { getNextTimestampDivisibleBy, daysToSeconds, verifyContract } from "../helpers/utils";
+import { ethers, network, upgrades } from "hardhat";
+import { verifyContract } from "../helpers/utils";
 
-const ten = BigNumber.from(10);
-const tenPow18 = ten.pow(18);
-const week = daysToSeconds(BigNumber.from(7)); // 7 days
+if (!process.env.START_TIME) {
+  throw new Error("START_TIME is not setted in .env");
+}
 
-const HAY = "";
-const MIN_EARN_AMT = "";
-const MASTERCHEF = "";
-const WANT = "";
-const CAKE = "";
-const TOKEN0 = "";
-const TOKEN1 = "";
-const ROUTER = "";
-const EARNED_TO_TOKEN0_PATH: string[] = [];
-const EARNED_TO_TOKEN1_PATH: string[] = [];
+const START_TIME = process.env.START_TIME;
+const HAY = "0x0782b6d8c4551B9760e74c0545a9bCD90bdc41E5";
+const MIN_EARN_AMT = "10000000000";
+const MASTERCHEF = "0xa5f8C5Dbd5F286960b9d90548680aE5ebFf07652";
+const WANT = "0x70c26e9805ec5Df3d4aB0b2a3dF86BBA2231B6c1";
+const CAKE = "0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82";
+const TOKEN0 = "0x0782b6d8c4551B9760e74c0545a9bCD90bdc41E5";
+const TOKEN1 = "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56"; // BUSD
+const ROUTER = "0x10ED43C718714eb63d5aA57B78B54704E256024E";
+const EARNED_TO_TOKEN0_PATH = [CAKE, TOKEN1, HAY];
+const EARNED_TO_TOKEN1_PATH = [CAKE, TOKEN1];
 
 const main = async () => {
   const FarmingFactory = await ethers.getContractFactory("Farming");
@@ -24,9 +24,7 @@ const main = async () => {
   const PancakeStrategyFactory = await ethers.getContractFactory("PancakeStrategy");
   const PancakeProxyForDepositFactory = await ethers.getContractFactory("PancakeProxyForDeposit");
 
-  const startTime = await getNextTimestampDivisibleBy(week.toNumber());
-
-  const incentiveVoting = await upgrades.deployProxy(IncentiveVotingFactory, [startTime]);
+  const incentiveVoting = await upgrades.deployProxy(IncentiveVotingFactory, [START_TIME]);
   await incentiveVoting.deployed();
   const incentiveVotingImpl = await incentiveVoting.erc1967.getImplementation();
 

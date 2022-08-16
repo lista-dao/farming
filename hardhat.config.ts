@@ -68,6 +68,10 @@ const config: HardhatUserConfig = {
       url: process.env.BSC_TESTNET_URL || "",
       accounts: pks,
     },
+    bsc: {
+      url: process.env.BSC_URL || "",
+      accounts: pks,
+    },
   },
   gasReporter: {
     enabled: process.env.REPORT_GAS !== undefined,
