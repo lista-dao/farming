@@ -9,7 +9,6 @@ import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/
 
 import { IFarming } from "./interfaces/IFarming.sol";
 import { IStrategy } from "./interfaces/IStrategy.sol";
-import { ITokenBonding } from "./interfaces/ITokenBonding.sol";
 import { IIncentiveVoting } from "./interfaces/IIncentiveVoting.sol";
 
 contract Farming is IFarming, Initializable, ReentrancyGuardUpgradeable, OwnableUpgradeable {

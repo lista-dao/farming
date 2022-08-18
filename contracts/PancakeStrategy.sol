@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
-// import { AddressUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import { IERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
@@ -9,11 +8,17 @@ import { SafeERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/
 import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
 import { IWBNB } from "./interfaces/IWBNB.sol";
+import { IStrategy } from "./interfaces/IStrategy.sol";
 import { IPancakeswapFarm } from "./interfaces/IPancakeswapFarm.sol";
 import { IPancakeRouter02 } from "./interfaces/IPancakeRouter02.sol";
 
 // solhint-disable max-states-count
-contract PancakeStrategy is OwnableUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable {
+contract PancakeStrategy is
+  IStrategy,
+  OwnableUpgradeable,
+  ReentrancyGuardUpgradeable,
+  PausableUpgradeable
+{
   using SafeERC20Upgradeable for IERC20Upgradeable;
 
   uint256 public pid;
@@ -30,7 +35,7 @@ contract PancakeStrategy is OwnableUpgradeable, ReentrancyGuardUpgradeable, Paus
   address[] public earnedToToken0Path;
   address[] public earnedToToken1Path;
 
-  uint256 public wantLockedTotal;
+  uint256 internal _wantLockedTotal;
   uint256 public sharesTotal;
 
   uint256 public minEarnAmount;
@@ -93,8 +98,8 @@ contract PancakeStrategy is OwnableUpgradeable, ReentrancyGuardUpgradeable, Paus
     IERC20Upgradeable(want).safeTransferFrom(address(msg.sender), address(this), _wantAmt);
 
     uint256 sharesAdded = _wantAmt;
-    if (wantLockedTotal > 0 && sharesTotal > 0) {
-      sharesAdded = (_wantAmt * sharesTotal) / wantLockedTotal;
+    if (_wantLockedTotal > 0 && sharesTotal > 0) {
+      sharesAdded = (_wantAmt * sharesTotal) / _wantLockedTotal;
     }
     sharesTotal += sharesAdded;
 
@@ -151,11 +156,15 @@ contract PancakeStrategy is OwnableUpgradeable, ReentrancyGuardUpgradeable, Paus
     IERC20Upgradeable(_token).safeTransfer(_to, _amount);
   }
 
-  function pause() public onlyOwner {
+  function pause() public virtual onlyOwner {
     _pause();
   }
 
-  function unpause() public onlyOwner {
+  function unpause() public virtual onlyOwner {
     _unpause();
+  }
+
+  function wantLockedTotal() external view virtual override returns (uint256) {
+    return sharesTotal;
   }
 }
