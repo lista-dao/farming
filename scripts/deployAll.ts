@@ -1,6 +1,8 @@
 import fs from "fs";
 import { ethers, network, upgrades } from "hardhat";
 import { verifyContract } from "../helpers/utils";
+// eslint-disable-next-line node/no-extraneous-import
+import { getImplementationAddress } from "@openzeppelin/upgrades-core";
 
 if (!process.env.START_TIME) {
   throw new Error("START_TIME is not setted in .env");
@@ -24,13 +26,17 @@ const main = async () => {
   const PancakeStrategyFactory = await ethers.getContractFactory("PancakeStrategy");
   const PancakeProxyForDepositFactory = await ethers.getContractFactory("PancakeProxyForDeposit");
 
+  console.log(START_TIME.toString());
+  console.log("Start");
   const incentiveVoting = await upgrades.deployProxy(IncentiveVotingFactory, [START_TIME]);
   await incentiveVoting.deployed();
-  const incentiveVotingImpl = await incentiveVoting.erc1967.getImplementation();
+  let currentImplAddress = await getImplementationAddress(ethers.provider, incentiveVoting.address);
+  const incentiveVotingImpl = currentImplAddress;
 
   const farming = await upgrades.deployProxy(FarmingFactory, [HAY, incentiveVoting.address]);
   await farming.deployed();
-  const farmingImpl = await farming.erc1967.getImplementation();
+  currentImplAddress = await getImplementationAddress(ethers.provider, farming.address);
+  const farmingImpl = currentImplAddress;
 
   const pancakeStrategy = await upgrades.deployProxy(PancakeStrategyFactory, [
     MIN_EARN_AMT,
@@ -40,14 +46,19 @@ const main = async () => {
     EARNED_TO_TOKEN1_PATH,
   ]);
   await pancakeStrategy.deployed();
-  const pancakeStrategyImpl = await pancakeStrategy.erc1967.getImplementation();
+  currentImplAddress = await getImplementationAddress(ethers.provider, pancakeStrategy.address);
+  const pancakeStrategyImpl = currentImplAddress;
 
   const pancakeProxyForDeposit = await upgrades.deployProxy(PancakeProxyForDepositFactory, [
     farming.address,
     ROUTER,
   ]);
   await pancakeProxyForDeposit.deployed();
-  const pancakeProxyForDepositImpl = await pancakeProxyForDeposit.erc1967.getImplementation();
+  currentImplAddress = await getImplementationAddress(
+    ethers.provider,
+    pancakeProxyForDeposit.address
+  );
+  const pancakeProxyForDepositImpl = currentImplAddress;
 
   const addresses = {
     hay: HAY,
