@@ -53,7 +53,7 @@ contract Farming is IFarming, Initializable, ReentrancyGuardUpgradeable, Ownable
   IERC20Upgradeable public rewardToken;
   IIncentiveVoting public incentiveVoting;
 
-  event Deposit(address indexed user, uint256 indexed pid, uint256 amount);
+  event Deposit(address indexed caller, address indexed user, uint256 indexed pid, uint256 amount);
   event Withdraw(address indexed user, uint256 indexed pid, uint256 amount);
   event EmergencyWithdraw(address indexed user, uint256 indexed pid, uint256 amount);
   event ClaimedReward(
@@ -116,10 +116,6 @@ contract Farming is IFarming, Initializable, ReentrancyGuardUpgradeable, Ownable
     claimReceiver[msg.sender] = _receiver;
   }
 
-  /**
-    @notice Allow or block third-party calls to deposit, withdraw
-            or claim rewards on behalf of the caller
-  */
   function setBlockThirdPartyActions(bool _block) external virtual {
     blockThirdPartyActions[msg.sender] = _block;
   }
@@ -227,6 +223,9 @@ contract Farming is IFarming, Initializable, ReentrancyGuardUpgradeable, Ownable
     address _userAddress
   ) public virtual nonReentrant returns (uint256) {
     require(_wantAmt > 0, "Cannot deposit zero");
+    if (msg.sender != _userAddress) {
+      _claimRewards = false;
+    }
     uint256 _accRewardPerShare = updatePool(_pid);
     PoolInfo storage pool = poolInfo[_pid];
     UserInfo storage user = userInfo[_pid][_userAddress];
@@ -244,13 +243,13 @@ contract Farming is IFarming, Initializable, ReentrancyGuardUpgradeable, Ownable
       }
     }
 
-    pool.token.safeTransferFrom(_userAddress, address(this), _wantAmt);
+    pool.token.safeTransferFrom(msg.sender, address(this), _wantAmt);
     pool.token.safeIncreaseAllowance(address(pool.strategy), _wantAmt);
     uint256 sharesAdded = pool.strategy.deposit(_userAddress, _wantAmt);
     user.shares += sharesAdded;
 
     user.rewardDebt = (user.shares * pool.accRewardPerShare) / 1e12;
-    emit Deposit(_userAddress, _pid, _wantAmt);
+    emit Deposit(msg.sender, _userAddress, _pid, _wantAmt);
     return pending;
   }
 
@@ -364,7 +363,6 @@ contract Farming is IFarming, Initializable, ReentrancyGuardUpgradeable, Ownable
   }
 
   function inCaseTokensGetStuck(address _token, uint256 _amount) public virtual onlyOwner {
-    require(_token != address(rewardToken), "!safe");
     IERC20Upgradeable(_token).safeTransfer(msg.sender, _amount);
   }
 

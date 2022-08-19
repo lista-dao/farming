@@ -64,8 +64,8 @@ contract IncentiveVoting is IIncentiveVoting, Initializable, OwnableUpgradeable 
 
   function setFarming(
     IFarming _farming,
-    address[] memory _initialApprovedTokens,
-    address[] memory _strategies
+    address[] calldata _initialApprovedTokens,
+    address[] calldata _strategies
   ) external virtual returns (uint256[] memory) {
     require(address(farming) == address(0), "farming address can be set only once");
     uint256 length = _initialApprovedTokens.length;
