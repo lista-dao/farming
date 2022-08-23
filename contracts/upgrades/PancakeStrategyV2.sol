@@ -26,10 +26,14 @@ contract PancakeStrategyV2 is PancakeStrategy {
     IERC20Upgradeable(want).safeTransferFrom(address(msg.sender), address(this), _wantAmt);
 
     uint256 sharesAdded = _wantAmt;
-    if (_wantLockedTotal > 0 && sharesTotal > 0) {
-      sharesAdded = (_wantAmt * sharesTotal) / _wantLockedTotal;
+
+    uint256 sharesTotalLocal = sharesTotal;
+    uint256 wantLockedTotalLocal = _wantLockedTotal;
+
+    if (wantLockedTotalLocal > 0 && sharesTotalLocal > 0) {
+      sharesAdded = (_wantAmt * sharesTotalLocal) / wantLockedTotalLocal;
     }
-    sharesTotal += sharesAdded;
+    sharesTotal = sharesTotalLocal + sharesAdded;
 
     _farm();
 
@@ -51,10 +55,12 @@ contract PancakeStrategyV2 is PancakeStrategy {
     }
 
     uint256 sharesRemoved = (_wantAmt * sharesTotal) / _wantLockedTotal;
-    if (sharesRemoved > sharesTotal) {
-      sharesRemoved = sharesTotal;
+
+    uint256 sharesTotalLocal = sharesTotal;
+    if (sharesRemoved > sharesTotalLocal) {
+      sharesRemoved = sharesTotalLocal;
     }
-    sharesTotal -= sharesRemoved;
+    sharesTotal = sharesTotalLocal - sharesRemoved;
 
     _unfarm(_wantAmt);
 
@@ -181,6 +187,7 @@ contract PancakeStrategyV2 is PancakeStrategy {
 
   function setAutoHarvest(bool _value) external onlyOwner {
     enableAutoHarvest = _value;
+    emit AutoharvestChanged(_value);
   }
 
   function setSlippageFactor(uint256 _slippageFactor) external onlyOwner {
@@ -190,6 +197,7 @@ contract PancakeStrategyV2 is PancakeStrategy {
 
   function setMinEarnAmount(uint256 _minEarnAmount) external onlyOwner {
     require(_minEarnAmount >= MIN_EARN_AMOUNT_LL, "min earn amount is too low");
+    emit MinEarnAmountChanged(minEarnAmount, _minEarnAmount);
     minEarnAmount = _minEarnAmount;
   }
 

@@ -47,7 +47,7 @@ contract Farming is IFarming, Initializable, ReentrancyGuardUpgradeable, Ownable
   mapping(address => address) public claimReceiver;
 
   // when set to true, other accounts cannot call
-  // `deposit` or `claim` on behalf of an account
+  // `claim` on behalf of an account
   mapping(address => bool) public blockThirdPartyActions;
 
   IERC20Upgradeable public rewardToken;
@@ -221,7 +221,7 @@ contract Farming is IFarming, Initializable, ReentrancyGuardUpgradeable, Ownable
     uint256 _wantAmt,
     bool _claimRewards,
     address _userAddress
-  ) public virtual nonReentrant returns (uint256) {
+  ) external virtual nonReentrant returns (uint256) {
     require(_wantAmt > 0, "Cannot deposit zero");
     if (msg.sender != _userAddress) {
       _claimRewards = false;
@@ -311,7 +311,7 @@ contract Farming is IFarming, Initializable, ReentrancyGuardUpgradeable, Ownable
     return pending;
   }
 
-  function withdrawAll(uint256 _pid, bool _claimRewards) public virtual returns (uint256) {
+  function withdrawAll(uint256 _pid, bool _claimRewards) external virtual returns (uint256) {
     return withdraw(_pid, type(uint256).max, _claimRewards);
   }
 

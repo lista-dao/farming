@@ -18,6 +18,9 @@ contract PancakeStrategy is
 {
   using SafeERC20Upgradeable for IERC20Upgradeable;
 
+  event AutoharvestChanged(bool value);
+  event MinEarnAmountChanged(uint256 indexed oldAmount, uint256 indexed newAmount);
+
   uint256 public pid;
   address public farmContractAddress;
   address public want;
@@ -89,18 +92,10 @@ contract PancakeStrategy is
     whenNotPaused
     returns (uint256)
   {
-    // if (enableAutoHarvest) {
-    //   _harvest();
-    // }
     IERC20Upgradeable(want).safeTransferFrom(address(msg.sender), address(this), _wantAmt);
 
     uint256 sharesAdded = _wantAmt;
-    if (_wantLockedTotal > 0 && sharesTotal > 0) {
-      sharesAdded = (_wantAmt * sharesTotal) / _wantLockedTotal;
-    }
     sharesTotal += sharesAdded;
-
-    // _farm();
 
     return sharesAdded;
   }
@@ -114,29 +109,17 @@ contract PancakeStrategy is
   {
     require(_wantAmt > 0, "_wantAmt <= 0");
 
-    // if (enableAutoHarvest) {
-    //   _harvest();
-    // }
-
-    // uint256 sharesRemoved = (_wantAmt * sharesTotal) / wantLockedTotal;
     uint256 sharesRemoved = _wantAmt;
-    if (sharesRemoved > sharesTotal) {
-      sharesRemoved = sharesTotal;
+    uint256 sharesTotalLocal = sharesTotal;
+    if (sharesRemoved > sharesTotalLocal) {
+      sharesRemoved = sharesTotalLocal;
     }
-    sharesTotal -= sharesRemoved;
-
-    // _unfarm(_wantAmt);
+    sharesTotal = sharesTotalLocal - sharesRemoved;
 
     uint256 wantAmt = IERC20Upgradeable(want).balanceOf(address(this));
     if (_wantAmt > wantAmt) {
       _wantAmt = wantAmt;
     }
-
-    // if (wantLockedTotal < _wantAmt) {
-    //   _wantAmt = wantLockedTotal;
-    // }
-
-    // wantLockedTotal -= _wantAmt;
 
     IERC20Upgradeable(want).safeTransfer(helioFarming, _wantAmt);
 
