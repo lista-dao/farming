@@ -4,7 +4,7 @@ pragma solidity ^0.8.15;
 import { IERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import { SafeERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 
-import { IPancakeswapFarm } from "../interfaces/IPancakeswapFarm.sol";
+import { IPancakeSwapFarm } from "../interfaces/IPancakeSwapFarm.sol";
 import { IPancakeRouter02 } from "../interfaces/IPancakeRouter02.sol";
 import { PancakeStrategy } from "../PancakeStrategy.sol";
 
@@ -89,11 +89,11 @@ contract PancakeStrategyV2 is PancakeStrategy {
     _wantLockedTotal += wantAmt;
     IERC20Upgradeable(want).safeIncreaseAllowance(farmContractAddress, wantAmt);
 
-    IPancakeswapFarm(farmContractAddress).deposit(pid, wantAmt);
+    IPancakeSwapFarm(farmContractAddress).deposit(pid, wantAmt);
   }
 
   function _unfarm(uint256 _wantAmt) internal virtual {
-    IPancakeswapFarm(farmContractAddress).withdraw(pid, _wantAmt);
+    IPancakeSwapFarm(farmContractAddress).withdraw(pid, _wantAmt);
   }
 
   // 1. Harvest farm tokens
