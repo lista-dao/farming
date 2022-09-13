@@ -59,7 +59,7 @@ contract IncentiveVotingV2 is IncentiveVoting {
     emit VotedForIncentives(msg.sender, _pids, _votes, usedVotes, _totalVotes);
   }
 
-  function setTokenBonding(address _tokenBonding) external onlyOwner {
+  function setTokenBonding(address _tokenBonding) external {
     require(address(tokenBonding) == address(0), "already setted!");
     tokenBonding = ITokenBonding(_tokenBonding);
   }
