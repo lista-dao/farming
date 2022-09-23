@@ -4,10 +4,6 @@ import { verifyContract } from "../helpers/utils";
 // eslint-disable-next-line node/no-extraneous-import
 import { getImplementationAddress } from "@openzeppelin/upgrades-core";
 
-if (!process.env.START_TIME) {
-  throw new Error("START_TIME is not setted in .env");
-}
-
 const PID = 121;
 const MIN_EARN_AMT = "10000000000";
 const FARMING = "0xf0fA2307392e3b0bD742437C6f80C6C56Fd8A37f";
