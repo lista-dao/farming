@@ -1,4 +1,5 @@
-import { ethers, upgrades } from "hardhat";
+import fs from "fs";
+import { ethers, network, upgrades } from "hardhat";
 import { verifyContract } from "../helpers/utils";
 // eslint-disable-next-line node/no-extraneous-import
 import { getImplementationAddress } from "@openzeppelin/upgrades-core";
@@ -42,6 +43,14 @@ const main = async () => {
   const stableStrategyImplementation = currentImplAddress;
   console.log("Strategy address is    ->", stableStrategy.address);
   console.log("Implementation address ->", currentImplAddress);
+
+  const addresses = {
+    stableStrategy: stableStrategy.address,
+    stableStrategyImplementation,
+  };
+  const jsonAddresses = JSON.stringify(addresses);
+  fs.writeFileSync(`../addresses/${network.name}StableCoinStrategyAddresses.json`, jsonAddresses);
+  console.log("Addresses saved!");
 
   await verifyContract(stableStrategyImplementation, []);
 };
