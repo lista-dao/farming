@@ -45,7 +45,7 @@ const main = async () => {
     stableStrategyImplementation,
   };
   const jsonAddresses = JSON.stringify(addresses);
-  fs.writeFileSync(`../addresses/${network.name}StableCoinStrategyAddresses.json`, jsonAddresses);
+  fs.writeFileSync(`../${network.name}StableCoinStrategyAddresses.json`, jsonAddresses);
   console.log("Addresses saved!");
 
   await verifyContract(stableStrategyImplementation, []);
