@@ -16,6 +16,7 @@ const NEW_OWNER = "0x8d388136d578dCD791D081c6042284CED6d9B0c6";
 const main = async () => {
   const CurveProxy = await ethers.getContractFactory("CurveProxyForDeposit");
   const curveProxy = (await upgrades.deployProxy(CurveProxy, [FARMING])) as CurveProxyForDeposit;
+  await curveProxy.deployed();
   const currentImplAddress = await getImplementationAddress(ethers.provider, curveProxy.address);
   console.log("curveProxyForDeposit address is    ->", curveProxy.address);
   console.log("Implementation address ->", currentImplAddress);
