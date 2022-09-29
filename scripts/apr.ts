@@ -9,7 +9,7 @@ const dayOfYear = BigNumber.from(365);
 const hundred = BigNumber.from(100);
 const secondsInYear = BigNumber.from(31536000);
 
-const cakePrice = BigNumber.from(4); // you need to get it from some api
+const cakePrice = BigNumber.from(486); // you need to get it from some api
 
 const main = async () => {
   const lp = await ethers.getContractAt(
@@ -53,7 +53,8 @@ const main = async () => {
     .mul(blocksPerDay)
     .mul(dayOfYear)
     .mul(cakePrice)
-    .div(totalAllocPoint);
+    .div(totalAllocPoint)
+    .div(100);
 
   const cakeApr = totalCakeRewardPrice.mul(tenPow18).mul(hundred).div(tvlLpPrice);
 
