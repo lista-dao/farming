@@ -11,16 +11,16 @@ import {
   daysToSeconds,
   getNextTimestampDivisibleBy,
   setTimestamp,
-} from "../helpers/utils";
+} from "../../helpers/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import {
   IERC20,
-  IUniswapV2Router02,
+  IPancakeRouter02,
   IWBNB,
   PancakeStrategy,
   StrategyMock,
 } from "../../typechain-types";
-import NetworkSnapshotter from "../helpers/NetworkSnapshotter";
+import NetworkSnapshotter from "../../helpers/NetworkSnapshotter";
 
 const { AddressZero, MaxUint256 } = ethers.constants;
 
@@ -41,7 +41,7 @@ describe("Strategy", () => {
   let want: IERC20;
   let cake: IERC20;
   let wbnb: IWBNB;
-  let router: IUniswapV2Router02;
+  let router: IPancakeRouter02;
 
   const networkSnapshotter = new NetworkSnapshotter();
 
@@ -59,7 +59,7 @@ describe("Strategy", () => {
     cake = await ethers.getContractAt("IERC20", "0x0e09fabb73bd3ade0a17ecc321fd13a19e81ce82");
     wbnb = await ethers.getContractAt("IWBNB", "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c");
     router = await ethers.getContractAt(
-      "IUniswapV2Router02",
+      "IPancakeRouter02",
       "0x10ED43C718714eb63d5aA57B78B54704E256024E"
     );
     const addresses = [

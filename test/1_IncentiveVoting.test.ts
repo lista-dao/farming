@@ -1,4 +1,4 @@
-import chai, { assert, expect } from "chai";
+import chai, { expect } from "chai";
 import chaiAsPromised from "chai-as-promised";
 import { ethers, upgrades } from "hardhat";
 import { BigNumber } from "ethers";
@@ -8,11 +8,10 @@ import {
   advanceTime,
   daysToSeconds,
   getNextTimestampDivisibleBy,
-  getTimestamp,
   setTimestamp,
 } from "../helpers/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { FakeERC20, Farming, IncentiveVoting, TokenBonding } from "../typechain-types";
+import { FakeERC20, Farming, IncentiveVoting } from "../typechain-types";
 import NetworkSnapshotter from "../helpers/NetworkSnapshotter";
 
 const { AddressZero, MaxUint256 } = ethers.constants;
@@ -27,20 +26,12 @@ const tenPow18 = ten.pow(18);
 describe("IncentiveVoting", () => {
   let deployer: SignerWithAddress;
   let signer1: SignerWithAddress;
-  let signer2: SignerWithAddress;
-  let signer3: SignerWithAddress;
-  let helio: FakeERC20;
-  let helioLp: FakeERC20;
   let rewardToken: FakeERC20;
-  let tokenBonding: TokenBonding;
   let incentiveVoting: IncentiveVoting;
   let farming: Farming;
   let firstFarmTkn: FakeERC20;
   let secondFarmTkn: FakeERC20;
   let startTime: BigNumber;
-
-  let helioCoefficient: BigNumber;
-  let helioLpCoefficient: BigNumber;
 
   const networkSnapshotter = new NetworkSnapshotter();
 
@@ -49,69 +40,22 @@ describe("IncentiveVoting", () => {
     await setTimestamp(startTime.toNumber() + 1);
   };
 
-  before("setup token bonding", async () => {
-    // setup
-    [deployer, signer1, signer2, signer3] = await ethers.getSigners();
-
-    const FakeToken = await ethers.getContractFactory("FakeERC20");
-    const TokenBonding = await ethers.getContractFactory("TokenBonding");
-
-    helio = await FakeToken.connect(deployer).deploy("Helio Token", "Helio");
-    await helio.deployed();
-    helioLp = await FakeToken.connect(deployer).deploy("Helio LP Token", "HelioLP");
-    await helioLp.deployed();
-
-    helioCoefficient = tenPow18.mul(1);
-    helioLpCoefficient = tenPow18.mul(2);
-
-    startTime = await getNextTimestampDivisibleBy(week.toNumber());
-
-    const tokens = [helio.address, helioLp.address];
-    const coefficients = [helioCoefficient, helioLpCoefficient];
-    tokenBonding = (await upgrades.deployProxy(TokenBonding, [
-      startTime,
-      tokens,
-      coefficients,
-    ])) as TokenBonding;
-    await tokenBonding.deployed();
-
-    // mint tokens
-    const amount = BigNumber.from("100000").mul(tenPow18);
-
-    await helio.mint(signer1.address, amount);
-    await helioLp.mint(signer1.address, amount);
-    await helio.mint(signer2.address, amount);
-    await helioLp.mint(signer2.address, amount);
-
-    const bondingAmount = BigNumber.from("10000").mul(tenPow18);
-
-    // start contract
-    await setStartContractTimestamp();
-
-    // approve
-    await helio.connect(signer1).approve(tokenBonding.address, bondingAmount);
-    await helio.connect(signer2).approve(tokenBonding.address, bondingAmount);
-    await helioLp.connect(signer1).approve(tokenBonding.address, bondingAmount);
-    await helioLp.connect(signer2).approve(tokenBonding.address, bondingAmount);
-
-    // bond
-    await tokenBonding.connect(signer1).bond(helio.address, bondingAmount);
-    await tokenBonding.connect(signer2).bond(helio.address, bondingAmount);
-    await tokenBonding.connect(signer1).bond(helioLp.address, bondingAmount);
-    await tokenBonding.connect(signer2).bond(helioLp.address, bondingAmount);
-  });
-
   before("setup Incentive Voting", async () => {
+    [deployer, signer1] = await ethers.getSigners();
     const IncentiveVoting = await ethers.getContractFactory("IncentiveVoting");
     const Farming = await ethers.getContractFactory("Farming");
     const FakeToken = await ethers.getContractFactory("FakeERC20");
 
+    startTime = await getNextTimestampDivisibleBy(100);
+
     // deploy contracts
-    incentiveVoting = (await upgrades.deployProxy(IncentiveVoting, [
-      tokenBonding.address,
-    ])) as IncentiveVoting;
+    incentiveVoting = (await upgrades.deployProxy(IncentiveVoting, [startTime])) as IncentiveVoting;
     await incentiveVoting.deployed();
-    rewardToken = await FakeToken.connect(deployer).deploy("Reward Token", "Reward");
+    // start contract
+    await setStartContractTimestamp();
+
+    rewardToken = await FakeToken.connect(deployer).deploy("Token", "Reward");
+
     await rewardToken.deployed();
     farming = (await upgrades.deployProxy(Farming, [
       rewardToken.address,
@@ -147,11 +91,11 @@ describe("IncentiveVoting", () => {
     it("initial contract addresses", async () => {
       expect(await incentiveVoting.farming()).to.be.equal(farming.address);
       expect(await incentiveVoting.rewardToken()).to.be.equal(rewardToken.address);
-      expect(await incentiveVoting.tokenBonding()).to.be.equal(tokenBonding.address);
+      expect(await incentiveVoting.tokenBonding()).to.be.equal(AddressZero);
     });
 
     it("startTime is ok", async () => {
-      expect(await incentiveVoting.startTime()).to.be.equal(await tokenBonding.startTime());
+      expect(await incentiveVoting.startTime()).to.be.equal(startTime);
     });
 
     it("approvedTokens work is ok", async () => {
@@ -165,41 +109,6 @@ describe("IncentiveVoting", () => {
       expect(await incentiveVoting.getWeek()).to.be.equal(0);
       await advanceTime(week.toNumber());
       expect(await incentiveVoting.getWeek()).to.be.equal(1);
-
-      // test the case where startTime is more than block timestamp
-      const TokenBonding = await ethers.getContractFactory("TokenBonding");
-      const IncentiveVoting = await ethers.getContractFactory("IncentiveVoting");
-      const newStartTime = await getNextTimestampDivisibleBy(week.toNumber());
-      const newTokenBonding = (await upgrades.deployProxy(TokenBonding, [
-        newStartTime,
-        [],
-        [],
-      ])) as TokenBonding;
-      await newTokenBonding.deployed();
-      const newIncentiveVoting = (await upgrades.deployProxy(IncentiveVoting, [
-        newTokenBonding.address,
-      ])) as IncentiveVoting;
-      await newIncentiveVoting.deployed();
-
-      assert.isTrue(newStartTime.gt(await getTimestamp()));
-
-      expect(await newIncentiveVoting.getWeek()).to.be.equal(0);
-    });
-
-    it("cannot set farming if strategies length is not equal to tokens length", async () => {
-      const IncentiveVoting = await ethers.getContractFactory("IncentiveVoting");
-
-      // deploy contracts
-      const newIncentiveVoting = (await upgrades.deployProxy(IncentiveVoting, [
-        tokenBonding.address,
-      ])) as IncentiveVoting;
-      await expect(
-        newIncentiveVoting.setFarming(
-          farming.address,
-          [firstFarmTkn.address, secondFarmTkn.address],
-          [AddressZero]
-        )
-      ).to.eventually.be.rejectedWith(Error, "lengths are not equal");
     });
 
     it("cannot set farming second time", async () => {
@@ -216,7 +125,7 @@ describe("IncentiveVoting", () => {
   describe("# addTokenApproval", () => {
     it("function can call only owner", async () => {
       await expect(
-        incentiveVoting.connect(signer3).addTokenApproval(AddressZero, AddressZero, false)
+        incentiveVoting.connect(signer1).addTokenApproval(AddressZero, AddressZero, false)
       ).to.eventually.be.rejectedWith("Ownable: caller is not the owner");
     });
   });
@@ -335,51 +244,38 @@ describe("IncentiveVoting", () => {
 
   describe("# voting", () => {
     it("should fail if tokens length is not equal to votes length", async () => {
-      await expect(incentiveVoting.connect(signer1).vote([0], [])).to.eventually.be.rejectedWith(
+      await expect(incentiveVoting.connect(deployer).vote([0], [])).to.eventually.be.rejectedWith(
         Error,
         "Input length mismatch"
       );
     });
 
     it("should fail if pid does not exist", async () => {
-      await expect(incentiveVoting.connect(signer1).vote([2], [0])).to.eventually.be.rejectedWith(
+      await expect(incentiveVoting.connect(deployer).vote([2], [0])).to.eventually.be.rejectedWith(
         Error,
         "Not approved for incentives"
       );
-    });
-
-    it("should fail when trying to vote more than the user have", async () => {
-      const voteAmount = BigNumber.from("100000");
-      await expect(
-        incentiveVoting.connect(signer1).vote([0], [voteAmount])
-      ).to.eventually.be.rejectedWith(Error, "Available votes exceeded");
     });
 
     it("voting works as expected", async () => {
       const currentWeek = await incentiveVoting.getWeek();
       const voteAmount = BigNumber.from("10000");
 
-      const userWeightBefore = await tokenBonding.userWeight(signer1.address);
-      const userVotesBefore = await incentiveVoting.userVotes(signer1.address, currentWeek);
+      const userVotesBefore = await incentiveVoting.userVotes(deployer.address, currentWeek);
       const tokenVotesBefore = await incentiveVoting.pidVotes(0, currentWeek);
       const totalVotesBefore = await incentiveVoting.totalVotes(currentWeek);
       const userTokenVotesBefore = await incentiveVoting.userPidVotes(
-        signer1.address,
+        deployer.address,
         0,
         currentWeek
       );
 
-      await expect(incentiveVoting.connect(signer1).vote([0], [voteAmount]))
-        .to.emit(incentiveVoting, "VotedForIncentives")
-        .withArgs(
-          signer1.address,
-          [0],
-          [voteAmount],
-          userVotesBefore.add(voteAmount),
-          userWeightBefore.div(tenPow18)
-        );
+      await expect(incentiveVoting.connect(deployer).vote([0], [voteAmount])).to.emit(
+        incentiveVoting,
+        "VotedForIncentives"
+      );
 
-      expect(await incentiveVoting.userVotes(signer1.address, currentWeek)).to.be.equal(
+      expect(await incentiveVoting.userVotes(deployer.address, currentWeek)).to.be.equal(
         userVotesBefore.add(voteAmount)
       );
       expect(await incentiveVoting.pidVotes(0, currentWeek)).to.be.equal(
@@ -388,7 +284,7 @@ describe("IncentiveVoting", () => {
       expect(await incentiveVoting.totalVotes(currentWeek)).to.be.equal(
         totalVotesBefore.add(voteAmount)
       );
-      expect(await incentiveVoting.userPidVotes(signer1.address, 0, currentWeek)).to.be.equal(
+      expect(await incentiveVoting.userPidVotes(deployer.address, 0, currentWeek)).to.be.equal(
         userTokenVotesBefore.add(voteAmount)
       );
     });
@@ -398,18 +294,17 @@ describe("IncentiveVoting", () => {
       const firstVoteAmount = BigNumber.from("10000");
       const secondVoteAmount = BigNumber.from("20000");
 
-      const userWeightBefore = await tokenBonding.userWeight(signer1.address);
-      const userVotesBefore = await incentiveVoting.userVotes(signer1.address, currentWeek);
+      const userVotesBefore = await incentiveVoting.userVotes(deployer.address, currentWeek);
       const firstTknVotesBefore = await incentiveVoting.pidVotes(0, currentWeek);
       const secondTknVotesBefore = await incentiveVoting.pidVotes(0, currentWeek);
       const totalVotesBefore = await incentiveVoting.totalVotes(currentWeek);
       const userFirstTknVotesBefore = await incentiveVoting.userPidVotes(
-        signer1.address,
+        deployer.address,
         0,
         currentWeek
       );
       const userSecondTknVotesBefore = await incentiveVoting.userPidVotes(
-        signer1.address,
+        deployer.address,
         0,
         currentWeek
       );
@@ -417,17 +312,12 @@ describe("IncentiveVoting", () => {
       const tokens = [0, 1];
       const votes = [firstVoteAmount, secondVoteAmount];
       const votesSum = votes.reduce((prev, curr) => prev.add(curr), BigNumber.from(0));
-      await expect(incentiveVoting.connect(signer1).vote(tokens, votes))
-        .to.emit(incentiveVoting, "VotedForIncentives")
-        .withArgs(
-          signer1.address,
-          tokens,
-          votes,
-          userVotesBefore.add(votesSum),
-          userWeightBefore.div(tenPow18)
-        );
+      await expect(incentiveVoting.connect(deployer).vote(tokens, votes)).to.emit(
+        incentiveVoting,
+        "VotedForIncentives"
+      );
 
-      expect(await incentiveVoting.userVotes(signer1.address, currentWeek)).to.be.equal(
+      expect(await incentiveVoting.userVotes(deployer.address, currentWeek)).to.be.equal(
         userVotesBefore.add(votesSum)
       );
       expect(await incentiveVoting.pidVotes(0, currentWeek)).to.be.equal(
@@ -439,10 +329,10 @@ describe("IncentiveVoting", () => {
       expect(await incentiveVoting.totalVotes(currentWeek)).to.be.equal(
         totalVotesBefore.add(votesSum)
       );
-      expect(await incentiveVoting.userPidVotes(signer1.address, 0, currentWeek)).to.be.equal(
+      expect(await incentiveVoting.userPidVotes(deployer.address, 0, currentWeek)).to.be.equal(
         userFirstTknVotesBefore.add(firstVoteAmount)
       );
-      expect(await incentiveVoting.userPidVotes(signer1.address, 1, currentWeek)).to.be.equal(
+      expect(await incentiveVoting.userPidVotes(deployer.address, 1, currentWeek)).to.be.equal(
         userSecondTknVotesBefore.add(secondVoteAmount)
       );
     });
@@ -462,7 +352,7 @@ describe("IncentiveVoting", () => {
       const secondVoteAmount = BigNumber.from("20000");
       const tokens = [0, 1];
       const votes = [firstVoteAmount, secondVoteAmount];
-      await incentiveVoting.connect(signer1).vote(tokens, votes);
+      await incentiveVoting.connect(deployer).vote(tokens, votes);
 
       expect(await incentiveVoting.getRewardsPerSecond(0, 1)).to.be.equal(0);
     });
@@ -477,7 +367,7 @@ describe("IncentiveVoting", () => {
       const tokens = [0, 1];
       const votes = [firstVoteAmount, secondVoteAmount];
       const votesSum = votes.reduce((prev, curr) => prev.add(curr), BigNumber.from(0));
-      await incentiveVoting.connect(signer1).vote(tokens, votes);
+      await incentiveVoting.connect(deployer).vote(tokens, votes);
 
       const expectedRewardsPerSecond = rewardAmount.mul(firstVoteAmount).div(votesSum.mul(week));
 
@@ -497,7 +387,7 @@ describe("IncentiveVoting", () => {
       const tokens = [0, 1];
       const votes = [firstVoteAmount, secondVoteAmount];
       const votesSum = votes.reduce((prev, curr) => prev.add(curr), BigNumber.from(0));
-      await incentiveVoting.connect(signer1).vote(tokens, votes);
+      await incentiveVoting.connect(deployer).vote(tokens, votes);
 
       // getVotes
       const weekVotes = await incentiveVoting.getVotes(currentWeek);
@@ -508,19 +398,12 @@ describe("IncentiveVoting", () => {
       expect(weekVotes._voteData[1].votes).to.be.equal(secondVoteAmount);
 
       // getUserVotes
-      const userWeekVotes = await incentiveVoting.getUserVotes(signer1.address, currentWeek);
+      const userWeekVotes = await incentiveVoting.getUserVotes(deployer.address, currentWeek);
       expect(userWeekVotes._totalVotes).to.be.equal(votesSum);
       expect(userWeekVotes._voteData[0].token).to.be.equal(firstFarmTkn.address);
       expect(userWeekVotes._voteData[0].votes).to.be.equal(firstVoteAmount);
       expect(userWeekVotes._voteData[1].token).to.be.equal(secondFarmTkn.address);
       expect(userWeekVotes._voteData[1].votes).to.be.equal(secondVoteAmount);
-
-      // availableVotes
-      const userAvailableVotes = await incentiveVoting.availableVotes(signer1.address);
-      const userWeight = await tokenBonding.userWeight(signer1.address);
-      const totalVotes = userWeight.div(tenPow18);
-      const expectedAvailableVotes = totalVotes.sub(votesSum);
-      expect(userAvailableVotes).to.be.equal(expectedAvailableVotes);
     });
   });
 });

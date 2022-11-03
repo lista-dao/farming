@@ -11,13 +11,7 @@ import {
   setTimestamp,
 } from "../helpers/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import {
-  FakeERC20,
-  Farming,
-  IncentiveVoting,
-  StrategyMock,
-  TokenBonding,
-} from "../typechain-types";
+import { FakeERC20, Farming, IncentiveVoting, StrategyMock } from "../typechain-types";
 import NetworkSnapshotter from "../helpers/NetworkSnapshotter";
 
 const { AddressZero, MaxUint256 } = ethers.constants;
@@ -34,10 +28,7 @@ describe("Farming", () => {
   let signer1: SignerWithAddress;
   let signer2: SignerWithAddress;
   let signer3: SignerWithAddress;
-  let helio: FakeERC20;
-  let helioLp: FakeERC20;
   let rewardToken: FakeERC20;
-  let tokenBonding: TokenBonding;
   let incentiveVoting: IncentiveVoting;
   let farming: Farming;
   let firstFarmTkn: FakeERC20;
@@ -46,9 +37,6 @@ describe("Farming", () => {
   let secondStrategy: StrategyMock;
   let startTime: BigNumber;
 
-  let helioCoefficient: BigNumber;
-  let helioLpCoefficient: BigNumber;
-
   const networkSnapshotter = new NetworkSnapshotter();
 
   const setStartContractTimestamp = async () => {
@@ -56,69 +44,21 @@ describe("Farming", () => {
     await setTimestamp(startTime.toNumber() + 1);
   };
 
-  before("setup token bonding", async () => {
-    // setup
+  before("setup Incentive Voting and Farming", async () => {
     [deployer, signer1, signer2, signer3] = await ethers.getSigners();
-
-    const FakeToken = await ethers.getContractFactory("FakeERC20");
-    const TokenBonding = await ethers.getContractFactory("TokenBonding");
-
-    helio = await FakeToken.connect(deployer).deploy("Helio Token", "Helio");
-    await helio.deployed();
-    helioLp = await FakeToken.connect(deployer).deploy("Helio LP Token", "HelioLP");
-    await helioLp.deployed();
-
-    helioCoefficient = tenPow18.mul(1);
-    helioLpCoefficient = tenPow18.mul(2);
-
-    startTime = await getNextTimestampDivisibleBy(week.toNumber());
-
-    const tokens = [helio.address, helioLp.address];
-    const coefficients = [helioCoefficient, helioLpCoefficient];
-    tokenBonding = (await upgrades.deployProxy(TokenBonding, [
-      startTime,
-      tokens,
-      coefficients,
-    ])) as TokenBonding;
-    await tokenBonding.deployed();
-
-    // mint tokens
-    const amount = BigNumber.from("100000").mul(tenPow18);
-
-    await helio.mint(signer1.address, amount);
-    await helioLp.mint(signer1.address, amount);
-    await helio.mint(signer2.address, amount);
-    await helioLp.mint(signer2.address, amount);
-
-    const bondingAmount = BigNumber.from("10000").mul(tenPow18);
-
-    // start contract
-    await setStartContractTimestamp();
-
-    // approve
-    await helio.connect(signer1).approve(tokenBonding.address, bondingAmount);
-    await helio.connect(signer2).approve(tokenBonding.address, bondingAmount);
-    await helioLp.connect(signer1).approve(tokenBonding.address, bondingAmount);
-    await helioLp.connect(signer2).approve(tokenBonding.address, bondingAmount);
-
-    // bond
-    await tokenBonding.connect(signer1).bond(helio.address, bondingAmount);
-    await tokenBonding.connect(signer2).bond(helio.address, bondingAmount);
-    await tokenBonding.connect(signer1).bond(helioLp.address, bondingAmount);
-    await tokenBonding.connect(signer2).bond(helioLp.address, bondingAmount);
-  });
-
-  before("setup Incentive Voting", async () => {
     const IncentiveVoting = await ethers.getContractFactory("IncentiveVoting");
     const Farming = await ethers.getContractFactory("Farming");
     const FakeToken = await ethers.getContractFactory("FakeERC20");
     const Strategy = await ethers.getContractFactory("StrategyMock");
 
+    startTime = await getNextTimestampDivisibleBy(100);
+
     // deploy contracts
-    incentiveVoting = (await upgrades.deployProxy(IncentiveVoting, [
-      tokenBonding.address,
-    ])) as IncentiveVoting;
+    incentiveVoting = (await upgrades.deployProxy(IncentiveVoting, [startTime])) as IncentiveVoting;
     await incentiveVoting.deployed();
+
+    await setStartContractTimestamp();
+
     rewardToken = await FakeToken.connect(deployer).deploy("Reward Token", "Reward");
     await rewardToken.deployed();
     farming = (await upgrades.deployProxy(Farming, [
@@ -168,7 +108,7 @@ describe("Farming", () => {
     const secondVoteAmount = BigNumber.from("20000");
     const tokens = [0, 1];
     const votes = [firstVoteAmount, secondVoteAmount];
-    await incentiveVoting.connect(signer1).vote(tokens, votes);
+    await incentiveVoting.connect(deployer).vote(tokens, votes);
 
     // snapshot a network
     await networkSnapshotter.firstSnapshot();
@@ -250,9 +190,11 @@ describe("Farming", () => {
 
       const poolLenBefore = await farming.poolLength();
 
+      console.log("AAAAAAAAAAAAAAAAAAAAAAA");
       await incentiveVoting
         .connect(deployer)
         .addTokenApproval(newToken.address, newStrat.address, true);
+      console.log("AAAAAAAAAAAAAAAAAAAAAAA");
 
       const poolLenAfter = await farming.poolLength();
 

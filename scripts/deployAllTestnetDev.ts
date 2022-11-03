@@ -8,13 +8,13 @@ import { getImplementationAddress } from "@openzeppelin/upgrades-core";
 const { AddressZero } = ethers.constants;
 
 const START_TIME = BigNumber.from(Math.floor(Date.now() / 1000) + 100);
-const HAY = "0xeEeb52943d6e3EAB97Fd99170d2415716d3B6DF3";
+const HAY = "0xf052cb891c3887acca8741859c6184794c482a8a";
 const MIN_EARN_AMT = "10000000000";
 const MASTERCHEF = AddressZero;
-const WANT = "0x8C042C7C768002179577Ab7936801D0d021A5660";
+const WANT = "0xb050200e173788D397e1F706E97216E72d24da2E";
 const CAKE = AddressZero;
 const TOKEN0 = "0x78867BbEeF44f2326bF8DDd1941a4439382EF2A7"; // BUSD
-const TOKEN1 = "0xeeeb52943d6e3eab97fd99170d2415716d3b6df3";
+const TOKEN1 = "0xf052cb891c3887acca8741859c6184794c482a8a";
 const ROUTER = "0x9Ac64Cc6e4415144C455BD8E4837Fea55603e5c3";
 const EARNED_TO_TOKEN0_PATH: string[] = [];
 const EARNED_TO_TOKEN1_PATH: string[] = [];
