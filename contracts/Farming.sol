@@ -29,6 +29,7 @@ contract Farming is IFarming, Initializable, ReentrancyGuardUpgradeable, Ownable
     uint256 accRewardPerShare; // Accumulated rewards per share, times 1e12. See below.
   }
 
+  // uint256 internal constant WEEK = 20 minutes;
   uint256 internal constant WEEK = 1 weeks;
 
   // Info of each pool.

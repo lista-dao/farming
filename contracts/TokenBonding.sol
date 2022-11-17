@@ -21,10 +21,11 @@ contract TokenBonding is
   event TokenAdded(address indexed token, uint256 coefficient);
   event UnbondingRequest(address indexed token, uint256 amount, uint256 timestamp);
 
-  string internal constant NAME = "veHELIO";
-  string internal constant SYMBOL = "veHELIO";
+  string internal constant NAME = "vHELIO";
+  string internal constant SYMBOL = "vHELIO";
   uint8 internal constant DECIMALS = 18;
   uint256 internal constant WEEK = 1 weeks;
+  // uint256 internal constant WEEK = 20 minutes;
   uint256 internal _totalSupply;
   uint256 internal _totalWeight;
 
@@ -269,6 +270,7 @@ contract TokenBonding is
     }
   }
 
+  // 2 * 10 ** 18
   function addToken(address newToken_, uint240 coefficient_) external virtual onlyOwner {
     require(_tokenInfo[newToken_].index == 0, "Token already added");
     _tokens.push(newToken_);

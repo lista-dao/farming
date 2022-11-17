@@ -9,8 +9,8 @@ import { IERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC
 
 import { IFarming } from "../interfaces/IFarming.sol";
 import { ITokenBonding } from "../interfaces/ITokenBonding.sol";
-import { IIncentiveVoting } from "../interfaces/IIncentiveVoting.sol";
 import { IExternalPool } from "../interfaces/IExternalPool.sol";
+import { IIncentiveVoting } from "../interfaces/IIncentiveVoting.sol";
 
 struct Vote {
   address addr;
@@ -42,6 +42,7 @@ contract IncentiveVotingTemp is IIncentiveVoting, Initializable, OwnableUpgradea
   uint256[65535] public totalPidRewards;
 
   uint256 internal constant WEEK = 1 weeks;
+  // uint256 internal constant WEEK = 20 minutes;
   uint256 public override startTime;
 
   ITokenBonding public tokenBonding;
@@ -172,7 +173,7 @@ contract IncentiveVotingTemp is IIncentiveVoting, Initializable, OwnableUpgradea
         isExternal: false
       });
     }
-    for (uint256 i = approvedPids.length; i < totalLength; i++) {
+    for (uint256 i = approvedExternalPids.length; i < totalLength; i++) {
       address farm = externalPoolById[i];
       _voteData[i] = Vote({
         addr: farm,
